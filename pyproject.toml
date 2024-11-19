@@ -1,0 +1,62 @@
+[project]
+name = "gpt-academic"
+version = "0.1.0"
+description = "为GPT/GLM等LLM大语言模型提供实用化交互接口，特别优化论文阅读/润色/写作体验，模块化设计，支持自定义快捷按钮&函数插件，支持Python和C++等项目剖析&自译解功能，PDF/LaTex论文翻译&总结功能，支持并行问询多种LLM模型，支持chatglm3等本地模型。接入通义千问, deepseekcoder, 讯飞星火, 文心一言, llama2, rwkv, claude2, moss等。"
+license = "GPL-3.0-only"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "gradio-client>=0.8",
+    "PyPDF2>=2.12.1",
+    "httpx<=0.25.2",
+    "zhipuai>=2.0.1",
+    "tiktoken>=0.3.3",
+    "requests[socks]",
+    "pydantic>=2.9.2",
+    "protobuf>=3.20",
+    "transformers>=4.27.1,<4.42",
+    "scipdf-parser>=0.52",
+    "spacy>=3.7.4",
+    "anthropic>=0.18.1",
+    "python-markdown-math",
+    "pymdown-extensions",
+    "websocket-client",
+    "beautifulsoup4",
+    "prompt-toolkit",
+    "latex2mathml",
+    "python-docx",
+    "mdtex2html",
+    "dashscope",
+    "pyautogen",
+    "colorama",
+    "Markdown",
+    "pygments",
+    "edge-tts",
+    "pymupdf",
+    "openai",
+    "rjsmin",
+    "loguru",
+    "arxiv",
+    "numpy",
+    "rich",
+    "llama-index-core>=0.10.68",
+    "llama-index-legacy>=0.9.48",
+    "llama-index-readers-file>=0.1.33",
+    "llama-index-readers-llama-parse>=0.1.6",
+    "llama-index-embeddings-azure-openai>=0.1.10",
+    "llama-index-embeddings-openai>=0.1.10",
+    "llama-parse>=0.4.9",
+    "mdit-py-plugins>=0.3.3",
+    "linkify-it-py>=2.0.3",
+    "gradio<=3.32.11",
+    "toml>=0.10.2",
+]
+
+[tool.uv.sources]
+gradio = { url = "https://public.agent-matrix.com/publish/gradio-3.32.10-py3-none-any.whl" }
+
+
+
+
+
