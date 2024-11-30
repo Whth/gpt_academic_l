@@ -14,6 +14,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Get latest tag
+        id: get_latest_tag
+        run: echo "LATEST_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
 
       - name: Make Compressed Release
         run: |
@@ -21,19 +27,17 @@ jobs:
           rm -rf .github
           rm -rf ci
           rm -rf tests
-          zip -r ../gpt-a-l-v$${{ github.ref}}.zip .
+          zip -r ${{ github.workspace }}/gpt-a-l-v${{ env.LATEST_TAG }}.zip .
         shell: bash
 
-      - name: publish release
-
+      - name: Publish Release
         uses: softprops/action-gh-release@v2.1.0
         with:
-          tag_name: ${{ github.ref }}
-          files: ../gpt-a-l-v${{ github.ref }}.zip
+          tag_name: ${{ env.LATEST_TAG }}
+          files: ${{ github.workspace }}/gpt-a-l-v${{ env.LATEST_TAG }}.zip
           draft: false
           fail_on_unmatched_files: true
           generate_release_notes: true
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
