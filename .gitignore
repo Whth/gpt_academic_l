@@ -54,7 +54,6 @@ coverage.xml
 *.mo
 *.pot
 github
-.github
 TEMP
 TRASH
 
