@@ -1,0 +1,39 @@
+name: Auto Release on Version Change
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+
+      - name: Make Compressed Release
+        run: |
+          rm -rf .git
+          rm -rf .github
+          rm -rf ci
+          rm -rf tests
+          zip -r ${{github.workspace}}/gpt-a-l-v$${{ github.ref}}.zip .
+        shell: bash
+
+      - name: publish release
+
+        uses: softprops/action-gh-release@v2.1.0
+        with:
+          tag_name: ${{ github.ref }}
+          files: ${{ github.workspace }}/gpt-a-l-v${{ github.ref }}.zip
+          draft: false
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
