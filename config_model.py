@@ -118,7 +118,7 @@ class GeminiConfig(BaseModel):
 
 class HuggingFaceConfig(BaseModel):
     huggingface_access_token: str = Field(default="", description="HuggingFace访问令牌，下载LLAMA时起作用")
-    daas_server_url: HttpUrl = Field(default="", description="HuggingFace DaaS服务器地址")
+    daas_server_url: HttpUrl = Field(default="https://api.huggingface.co/", description="HuggingFace DaaS服务器地址")
 
 
 class GrobidConfig(BaseModel):
