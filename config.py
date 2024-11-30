@@ -17,7 +17,7 @@ def load_config(config_file: PathLike | str = "./config/config.toml") -> Configu
             config_data = toml.load(f)
         return Configuration(**config_data)
     else:
-        config_file.parent.mkdir(parents=True)
+        config_file.parent.mkdir(parents=True, exist_ok=True)
         conf = Configuration()
         with open(config_file, "w", encoding="utf-8") as fp:
             fp.write(dumps(conf.model_dump()))
