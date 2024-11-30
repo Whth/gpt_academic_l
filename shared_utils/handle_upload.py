@@ -1,14 +1,8 @@
-import importlib
-import time
-import inspect
-import re
 import os
-import base64
-import gradio
 import shutil
-import glob
-from shared_utils.config_loader import get_conf
+
 from loguru import logger
+
 
 def html_local_file(file):
     base_path = os.path.dirname(__file__)  # 项目目录
@@ -45,26 +39,25 @@ def file_manifest_filter_type(file_list, filter_: list = None):
 def zip_extract_member_new(self, member, targetpath, pwd):
     # 修复中文乱码的问题
     """Extract the ZipInfo object 'member' to a physical
-        file on the path targetpath.
+    file on the path targetpath.
     """
     import zipfile
+
     if not isinstance(member, zipfile.ZipInfo):
         member = self.getinfo(member)
 
     # build the destination pathname, replacing
     # forward slashes to platform specific separators.
-    arcname = member.filename.replace('/', os.path.sep)
-    arcname = arcname.encode('cp437', errors='replace').decode('gbk', errors='replace')
+    arcname = member.filename.replace("/", os.path.sep)
 
     if os.path.altsep:
         arcname = arcname.replace(os.path.altsep, os.path.sep)
     # interpret absolute pathname as relative, remove drive letter or
     # UNC path, redundant separators, "." and ".." components.
     arcname = os.path.splitdrive(arcname)[1]
-    invalid_path_parts = ('', os.path.curdir, os.path.pardir)
-    arcname = os.path.sep.join(x for x in arcname.split(os.path.sep)
-                                if x not in invalid_path_parts)
-    if os.path.sep == '\\':
+    invalid_path_parts = ("", os.path.curdir, os.path.pardir)
+    arcname = os.path.sep.join(x for x in arcname.split(os.path.sep) if x not in invalid_path_parts)
+    if os.path.sep == "\\":
         # filter illegal characters on Windows
         arcname = self._sanitize_windows_name(arcname, os.path.sep)
 
@@ -81,8 +74,7 @@ def zip_extract_member_new(self, member, targetpath, pwd):
             os.mkdir(targetpath)
         return targetpath
 
-    with self.open(member, pwd=pwd) as source, \
-            open(targetpath, "wb") as target:
+    with self.open(member, pwd=pwd) as source, open(targetpath, "wb") as target:
         shutil.copyfileobj(source, target)
 
     return targetpath
@@ -99,7 +91,7 @@ def extract_archive(file_path, dest_dir):
     # Extract the archive based on its extension
     if file_extension == ".zip":
         with zipfile.ZipFile(file_path, "r") as zipobj:
-            zipobj._extract_member = lambda a,b,c: zip_extract_member_new(zipobj, a,b,c)    # 修复中文乱码的问题
+            zipobj._extract_member = lambda a, b, c: zip_extract_member_new(zipobj, a, b, c)  # 修复中文乱码的问题
             zipobj.extractall(path=dest_dir)
             logger.info("Successfully extracted zip archive to {}".format(dest_dir))
 
@@ -120,8 +112,9 @@ def extract_archive(file_path, dest_dir):
             if file_extension == ".gz":
                 # 一些特别奇葩的项目，是一个gz文件，里面不是tar，只有一个tex文件
                 import gzip
-                with gzip.open(file_path, 'rb') as f_in:
-                    with open(os.path.join(dest_dir, 'main.tex'), 'wb') as f_out:
+
+                with gzip.open(file_path, "rb") as f_in:
+                    with open(os.path.join(dest_dir, "main.tex"), "wb") as f_out:
                         f_out.write(f_in.read())
             else:
                 raise e
@@ -153,4 +146,3 @@ def extract_archive(file_path, dest_dir):
     else:
         return ""
     return ""
-

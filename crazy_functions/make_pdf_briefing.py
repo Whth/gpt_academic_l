@@ -69,7 +69,7 @@ def make_brifing_inner(
     out_path = ""
     for f_no, file_path in enumerate(file_manifest):
         file_name = file_path.as_posix()
-        logger.info("begin analysis on:", file_name)
+        logger.info(info := f"begin analysis on: {file_name}")
         ############################## <第 0 步，切割PDF> ##################################
         # 递归地切割PDF文件，每一块（尽量是完整的一个section，比如introduction，experiment等，必要时再进行切割）
         # 的长度必须小于 2500 个 Token
@@ -98,9 +98,8 @@ def make_brifing_inner(
         final_results = [paper_meta]
 
         ############################## <第 2 步，迭代地历遍整个文章，提取精炼信息> ##################################
-        i_say_show_user = f"首先你在中文语境下通读整篇论文。"
-        gpt_say = "[Local Message] 收到。"  # 用户提示
-        chatbot.append([i_say_show_user, gpt_say])
+
+        chatbot.append([info, ">>>"])
         yield from update_ui(chatbot=chatbot, history=[])  # 更新UI
 
         iteration_results = []
@@ -312,6 +311,7 @@ class BriefingMaker(GptAcademicPluginTemplate):
         return gui_definition
 
     def execute(txt: str, llm_kwargs, plugin_kwargs, chatbot, history, system_prompt, user_request):
+
         return (
             yield from make_brifing(
                 txt,
