@@ -105,13 +105,12 @@ TAICHU_API_KEY = config.taichu_config.taichu_api_key
 MATHPIX_APPID = config.mathpix_config.mathpix_appid
 MATHPIX_APPKEY = config.mathpix_config.mathpix_appkey
 
-DOC2X_API_KEY = config.doc2x_config.doc2x_api_key
 
 CUSTOM_API_KEY_PATTERN = config.custom_api_key_pattern_config.custom_api_key_pattern
 
 GEMINI_API_KEY = config.gemini_config.gemini_api_key
 
 HUGGINGFACE_ACCESS_TOKEN = config.huggingface_config.huggingface_access_token
-
+DAAS_SERVER_URL = config.huggingface_config.daas_server_url
 GROBID_URLS = config.grobid_config.grobid_urls
 SEARXNG_URL = config.searxng_config.searxng_url
