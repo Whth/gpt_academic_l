@@ -53,6 +53,28 @@ class ContentPacker:
 # 使用示例
 
 
+class FileNameSegmetation:
+
+    def __init__(self,f_path:Path):
+        self._f_name = f_path.stem
+        segs=self._f_name.split(" - ")
+        self._authers=segs[0].replace(" et al.","等人")
+        self._year=segs[1]
+        self._title=segs[2]
+
+    @property
+    def f_name(self):
+        return self._f_name
+    @property
+    def authers(self):
+        return self._authers
+    @property
+    def year(self):
+        return self._year
+    @property
+    def title(self):
+        return self._title
+
 def make_brifing_inner(
     file_manifest: List[Path],
     llm_kwargs,
@@ -68,14 +90,13 @@ def make_brifing_inner(
     all_file_count = len(file_manifest)
     out_path = ""
     for f_no, file_path in enumerate(file_manifest):
-        file_name = file_path.as_posix()
-        logger.info(info := f"begin analysis on: {file_name}")
+        logger.info(info := f"begin analysis on: {file_path.as_posix()}")
         ############################## <第 0 步，切割PDF> ##################################
         # 递归地切割PDF文件，每一块（尽量是完整的一个section，比如introduction，experiment等，必要时再进行切割）
         # 的长度必须小于 2500 个 Token
-        file_content, page_one = read_and_clean_pdf_text(file_name)  # （尝试）按照章节切割PDF
+        file_content, page_one = read_and_clean_pdf_text(file_path.as_posix())  # （尝试）按照章节切割PDF
         file_content = file_content.encode("utf-8", "ignore").decode()  # avoid reading non-utf8 chars
-        page_one = str(page_one).encode("utf-8", "ignore").decode()  # avoid reading non-utf8 chars
+        page_one = str(page_one).encode(errors= "ignore").decode()  # avoid reading non-utf8 chars
 
         from crazy_functions.pdf_fns.breakdown_txt import (
             breakdown_text_to_satisfy_token_limit,
@@ -110,7 +131,11 @@ def make_brifing_inner(
             logger.warning("文章极长，可能无法达到预期效果")
         for i in range(n_fragment):
             NUM_OF_WORD = max_word_total // n_fragment
-            i_say = f"Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i]}"
+            i_say = (f"Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i]},"
+                     f" DO NOT transcribe the equations or formulas directly, but describe their mechanism and function in Chinese."
+                     f" DO retain the charts' or tables' serial numbers and names in the way the were in the original text, they are high value info."
+                     f" DO NOT try to recapitulate the references, they are not the main content of the paper, so they are useless here."
+                     f" DO NOTICE the name of entity should always be annotated with academic name, like 'Deep Learning' instead of 'DL'.")
             i_say_show_user = f"[{i+1}/{n_fragment}] Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i][:200]}"
             gpt_say = yield from request_gpt_model_in_new_thread_with_ui_alive(
                 i_say,
@@ -121,7 +146,7 @@ def make_brifing_inner(
                     "The main idea of the previous section is?",
                     last_iteration_result,
                 ],  # 迭代上一次的结果
-                sys_prompt="Extract the main idea of this section with Chinese.YOU SHALL NOT Translate author's name into chinese",  # 提示
+                sys_prompt="Extract the main idea of this section with Chinese.YOU SHALL NOT Translate author's name",  # 提示
             )
             iteration_results.append(gpt_say)
             last_iteration_result = gpt_say
@@ -129,10 +154,12 @@ def make_brifing_inner(
         ############################## <第 3 步，整理history，提取总结> ##################################
         final_results.extend(iteration_results)
         final_results.append(f"")
-
+        
+        f_segs=FileNameSegmetation(file_path)
+        
         field_string = f'我正在撰写一篇关于"{title}"的文献综述论文。' if title else ""
         i_say = f"""
-根据上面这这篇论文，为我完成内容提取，具体的格式要求如下：
+根据上面这篇由{f_segs.authers}在{f_segs.year}年发表的标题为“{f_segs.title}”的论文，为我完成内容提取，具体的格式要求如下：
 {field_string}这个是对于一篇论文所对应综述内容的格式要求：
 
 {format_constrain}
@@ -248,19 +275,24 @@ class BriefingMaker(GptAcademicPluginTemplate):
 
         std_format = """
 - 文章标题: 不要翻译，保留原文
-- 作者：作者名不要做任何的翻译，多个作者时要保留前三个然后后面加上"等"
+- 作者：作者名不要做任何的翻译，多个作者时要保留前三个然后后面加上"等人"
 - 研究发表的年份：文献发表的年份是什么？
 - 研究的背景：研究的动机和目的是什么？
 - 文章的性质：【技术报告和技术说明 | 专利文献 | 会议论文 | 学位论文 | 行业标准与规范 | 案例研究/项目报告 | 政策文件和研究报告 | 书籍章节 | 评论文章 | 跨学科研究 | 其他】 的其中一种
-- 核心工作：研究的主要贡献或创新点，使用了什么方法或者技术，提出1或者2点，一定要具体地说出技术或者方法的学名！
-- 解决了什么问题：这项研究通过核心工作解决了什么问题，有什么应用价值，提出1或者2点
-- 得出的主要结论：最后的结果和效果怎么样，是否达到了预期的目标，可以如何改进，一定要指出具体的指标
+- 核心工作：研究的主要贡献或创新点有那些？使用了什么方法或者技术？提取出最优秀的4到6点，一定要具体地说出技术或者方法的学名！
+- 解决了什么问题：这项研究通过其各个核心工作都各自在什么条件下解决了什么问题？有什么应用价值？
+- 与核心工作相对应的图或者表的标号与名字：这项研究中的核心工作是否有对应的图表或者表格？如果有，那么它们的名字是什么？
+- 得出的主要结论：最后的结果和效果怎么样？是否达到了预期的目标？可以如何改进？一定要指出具体的指标！
+- 文章的关键词：文章中研究内容所围绕的关键词是什么？给出最重要的5到8个关键词。
 - 研究最终会影响到的对象：这项研究对学术界或者工业界的那些对象有什么影响，是否有什么进一步的应用或者研究方向？
 - 研究达到的效果或影响：最终所达到的效果或者影响具体是什么？
+- 研究的局限性：这项研究的局限性是什么？是否有什么可以改进的地方？
 - 最终概述：将上面提取出来的内容全部按照规范的格式组织起来（
 规范(注意:【】和其中的文字共同组成并指代了一个提取到的内容)：
 【作者1的姓】, 【作者2的姓】, 【作者3的姓】等，在【发表年份】里【研究背景】下的【文章的性质】中讨论了【核心工作1】在处理【解决的问题1】，此外其还讨论了【核心工作2】在处理【解决的问题2】，最终得到了【主要结论】的结论)，对【影响对象】有着【影响或者效果】.
 ）
+
+- 文章整个研究的流程图puml代码：根据文章中作者们实际的研究流程，绘制为puml代码，最后将其粘贴到这里，注意要保证学术严谨，你不应该使用抽象度较高的描述，而应该使用具体的技木或者方法名，每一步之间都有逻辑联系，每一个都是有意义的。
 请确保你的回答简洁明了，并按照以下格式组织信息，下面是一个模板用作参考（注意：最后你给出的提取内容不应该带【】）：
 
 文章标题：【文章标题】
@@ -270,10 +302,14 @@ class BriefingMaker(GptAcademicPluginTemplate):
 文章性质：【文章性质】
 核心工作：【核心工作1】；【核心工作2】；...
 解决什么问题：【解决问题1】；【解决问题2】；...
+与核心工作相对应的图或者表的标号与名字：【图表标号与名字1】；【图表标号与名字2】；...
 得出的主要结论：【得出的主要结论】
+文章关键词：【关键词1】；【关键词2】；...
 研究最终会影响到的对象：【影响对象】
 研究达到的效果或影响：【效果或影响】
+研究的局限性：【局限性】
 最终概述：【最终概述】
+文章整个研究的流程图puml代码：【流程图代码】
 """
 
         gui_definition = {
@@ -292,7 +328,7 @@ class BriefingMaker(GptAcademicPluginTemplate):
             "token_restrains": ArgProperty(
                 title="token restrains",
                 description="The token restrains, in order, max api token|max briefing token|max segment token",
-                default_value=f"{int(4096 * 0.7)}|{2500}|{int(4096 * 0.7)}",
+                default_value=f"{int(32000*0.65)}|{3800}|{int(21000)}",
                 type="string",
             ).model_dump_json(),
             "format_constraint": ArgProperty(

@@ -52,9 +52,9 @@ def get_crazy_functions():
     from crazy_functions.Image_Generate_Wrap import ImageGen_Wrap
     from crazy_functions.SourceCode_Comment import 注释Python项目
     from crazy_functions.SourceCode_Comment_Wrap import SourceCodeComment_Wrap
-    from crazy_functions.make_pdf_briefing import BriefingMaker
-    from crazy_functions.make_articles import ArticleMaker
-    from crazy_functions.make_article_enhance import MakeArticleEnhance
+    from crazy_functions.articles.make_pdf_briefing import BriefingMaker
+    from crazy_functions.articles.make_articles import ArticleMaker
+    from crazy_functions.articles.make_article_enhance import MakeArticleEnhance
 
     function_plugins = {
         "多媒体智能体": {

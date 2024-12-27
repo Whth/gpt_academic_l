@@ -1,8 +1,8 @@
 import zipfile
 from pathlib import Path
 
-from crazy_functions.make_articles import ArticleMaker
-from crazy_functions.make_pdf_briefing import BriefingMaker
+from crazy_functions.articles.make_articles import ArticleMaker
+from crazy_functions.articles.make_pdf_briefing import BriefingMaker
 from toolbox import CatchException
 
 
