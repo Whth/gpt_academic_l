@@ -20,16 +20,20 @@ Briefing: TypeAlias = str
 
 
 class ChapterOutline:
+    """
+    用于处理文章章节的提纲
+    """
     AFFIRMATIVE = "是相关的"
     REJECT = "没有关系"
     MAX_WORKER = 4
+    TITLE=''
 
-    def __init__(self, title: str, content: str, llm_kwargs, chatbot):
-        self.title = title
+    def __init__(self, content: str, llm_kwargs, chatbot,references:List[str]=None):
         self.content = content
+        self.references = references or []
         self._llm_kwargs = llm_kwargs
         self._chatbot = chatbot
-        self._role = f'You are expert about how to write a paper about "{self.title}" and how to choose most appropriate references.'
+        self._role = f'You are expert about how to write a paper about "{self.TITLE}" and how to choose most appropriate references.'
 
     @property
     def chap_header(self) -> str:
@@ -51,12 +55,19 @@ class ChapterOutline:
         else:
             return self.content[:20]
 
+    def set_references(self, references: List[str])->Self:
+        self.references.clear()
+        self.references.extend(references)
+        return self
     def relation_asm(self, briefing: Briefing) -> str:
+        """
+        生成用于判断文献综述与提纲关系的 ASM 任务
+        """
         return f"""
 现在有一篇这个论文的综述，如下：
 {briefing}
 
-现在说明任务，我在编写题目为“{self.title}”的论文，这个是我的论文里面的部分提纲:
+现在说明任务，我在编写题目为“{self.TITLE}”的论文，这个是我的论文里面的部分提纲:
 
 {self.content}
 
@@ -68,13 +79,17 @@ class ChapterOutline:
 除了关键字外不要有额外的说明！你只需要回复“{self.AFFIRMATIVE}”或者“{self.REJECT}”两个关键字中的其中一个，你的回复中如果存在其他的任何解释都会被视为非法输入。
 """
 
-    def write_asm(self, ref_materials: List[str]) -> str:
+    def write_asm(self) -> str:
+        """
+        生成用于撰写文章内容的 ASM 任务
+        """
+        ref_materials = self.references
         asm_ref_material: str = "\n\n".join([f"[{i}]: {ref_material}" for i, ref_material in enumerate(ref_materials)])
         return f"""
 {asm_ref_material}       
 
-上面这些是我对一些相关文献总结出来的总共{len(asm_ref_material)}篇文献综述.
-现在开始说明任务，我在编写题目为“{self.title}”的论文，这个是我的论文里面的部分提纲你要专注于融合上面{len(asm_ref_material)}篇的文献综述补全这个提纲，变为一个完整的章节:
+上面这些是我对一些相关文献总结出来的总共{len(ref_materials)}篇文献综述.
+现在开始说明任务，我在编写题目为“{self.TITLE}”的论文，这个是我的论文里面的部分提纲你要专注于融合上面{len(ref_materials)}篇的文献综述补全这个提纲，变为一个完整的章节:
 
 {self.content}
 
@@ -91,7 +106,10 @@ class ChapterOutline:
 
 """
 
-    def with_relation(self, briefings: List[Briefing]):
+    def update_related_references(self, briefings: List[Briefing])->Self:
+        """
+        用于处理文献综述与提纲关系的 ASM 任务
+        """
         logger.info(f"开始处理{self.chap_header}的文献综述,过滤出符合条件的文献")
 
         res = yield from (
@@ -106,10 +124,14 @@ class ChapterOutline:
                 max_workers=self.MAX_WORKER,
             )
         )
-        return res[1::2]
+        self.set_references(self.check_pass(briefings, res[1::2]))
+        return self
 
     @classmethod
     def check_pass(cls, refs: List[Briefing], response: List[str]) -> List[Briefing]:
+        """
+        检查文献综述与提纲关系的 ASM 任务的回答是否符合要求
+        """
         assert len(refs) == len(
             response
         ), f"The length of refs and response should be the same, ref: {len(refs)}, response: {len(response)}"
@@ -158,6 +180,9 @@ class ContentPacker:
 
 
 class ArticleMaker(GptAcademicPluginTemplate):
+    """
+    用于生成文章内容的插件
+    """
 
     def define_arg_selection_menu(self):
 
@@ -250,44 +275,64 @@ class ArticleMaker(GptAcademicPluginTemplate):
 
         chapters = plugin_kwargs["outline"].split("\n\n")
         title = plugin_kwargs["title"]
+        ChapterOutline.TITLE = title
         max_judges_threads = int(plugin_kwargs["max_judges_threads"])
         ChapterOutline.MAX_WORKER = max_judges_threads
         max_write_threads = int(plugin_kwargs["max_write_threads"])
-        chap_outlines = [ChapterOutline(title, content, llm_kwargs, chatbot) for content in chapters]
+        chap_outlines = [ChapterOutline(content, llm_kwargs, chatbot) for content in chapters]
 
-        write_asms: List[str] = []
         for parg in chap_outlines:
-            gpt_response: List[str] = yield from parg.with_relation(read_contents)
-            passed_refs = parg.check_pass(read_contents, gpt_response)
-            write_asms.append(parg.write_asm(passed_refs))
-        packer = ContentPacker()
-        for chap, w_asm in zip(chap_outlines, write_asms):
-            packer.add_content(chap.chap_header, w_asm)
-        packer.pack(pre_obj := (root / (f_name := f"{title}.zip")).as_posix()).cleanup()
-        logger.info(f"已经生成初步原材料ZIP文件: {pre_obj}")
-        promote_file_to_downloadzone(pre_obj, f_name, chatbot=chatbot)
-        logger.info(f"开始生成最终的文章内容")
-        collections = yield from request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency(
-            handle_token_exceed=False,
-            llm_kwargs=llm_kwargs,
-            chatbot=chatbot,
-            inputs_array=write_asms,
-            inputs_show_user_array=[f"Dealing with {chap.chap_header}" for chap in chap_outlines] * len(write_asms),
-            history_array=[[]] * len(write_asms),
-            sys_prompt_array=[f'You are expert about how to write a paper about "{title}" with given references']
-            * len(write_asms),
-            max_workers=max_write_threads,
-        )
-        gpt_res = collections[1::2]
+            yield from parg.update_related_references(read_contents)
+        dump_materials(chap_outlines, chatbot, root)
 
-        for chap, resp in zip(chap_outlines, gpt_res):
-            packer.add_content(f"{chap.chap_header}-write", resp)
-
-        packer.add_content(title, "\n".join(gpt_res))
-        f_path = (root / (fi_name := f"{title}-write.zip")).as_posix()
-        packer.pack(f_path)
-        logger.info(f"已经生成最终文章内容ZIP文件: {f_path}")
-        out_path = promote_file_to_downloadzone(f_path, fi_name, chatbot=chatbot)
+        gpt_res:List[str] = yield from write_article(chap_outlines, chatbot, llm_kwargs, max_write_threads)
+        out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 
         yield from update_ui(chatbot=chatbot, history=history)
         return out_path
+
+def dump_final_result( chap_outlines, chatbot, gpt_res, root):
+    """
+    将文章内容生成为ZIP文件
+    """
+    packer = ContentPacker()
+    for chap, resp in zip(chap_outlines, gpt_res):
+        packer.add_content(f"{chap.chap_header}-write", resp)
+    packer.add_content(ChapterOutline.TITLE, "\n".join(gpt_res))
+    f_path = (root / (fi_name := f"{ChapterOutline.TITLE}-write.zip")).as_posix()
+    packer.pack(f_path)
+    logger.info(f"已经生成最终文章内容ZIP文件: {f_path}")
+    out_path = promote_file_to_downloadzone(f_path, fi_name, chatbot=chatbot)
+    return out_path
+
+
+def dump_materials(chap_outlines, chatbot, root):
+    """
+    将文献综述和提纲的关系保存为ZIP文件
+    """
+    packer = ContentPacker()
+    for chap in chap_outlines:
+        packer.add_content(chap.chap_header, chap.write_asm())
+    packer.pack(pre_obj := (root / (f_name := f"{ChapterOutline.TITLE}.zip")).as_posix()).cleanup()
+    promote_file_to_downloadzone(pre_obj, f_name, chatbot=chatbot)
+
+
+def write_article( chap_outlines, chatbot, llm_kwargs, max_write_threads)->List[str]:
+    """
+    生成最终的文章内容
+    """
+
+    logger.info(f"开始生成最终的文章内容")
+    collections = yield from request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency(
+        handle_token_exceed=False,
+        llm_kwargs=llm_kwargs,
+        chatbot=chatbot,
+        inputs_array=[chap.write_asm() for chap in chap_outlines],
+        inputs_show_user_array=[f"Dealing with {chap.chap_header}" for chap in chap_outlines],
+        history_array=[[]] * len(chap_outlines),
+        sys_prompt_array=[f'You are expert about how to write a paper about "{ChapterOutline.TITLE}" with given references']
+                         * len(chap_outlines),
+        max_workers=max_write_threads,
+    )
+    gpt_res:List[str] = collections[1::2]
+    return gpt_res
