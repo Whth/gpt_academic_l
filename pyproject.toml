@@ -51,6 +51,7 @@ dependencies = [
     "linkify-it-py>=2.0.3",
     "gradio<=3.32.11",
     "toml>=0.10.2",
+    "rarfile>=4.2",
 ]
 
 [tool.uv.sources]

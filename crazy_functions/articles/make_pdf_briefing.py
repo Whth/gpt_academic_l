@@ -129,28 +129,12 @@ def make_brifing_inner(
         n_fragment = len(paper_fragments)
         if n_fragment >= 20:
             logger.warning("文章极长，可能无法达到预期效果")
-        for i in range(n_fragment):
-            NUM_OF_WORD = max_word_total // n_fragment
-            i_say = (f"Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i]},"
-                     f" DO NOT transcribe the equations or formulas directly, but describe their mechanism and function in Chinese."
-                     f" DO retain the charts' or tables' serial numbers and names in the way the were in the original text, they are high value info."
-                     f" DO NOT try to recapitulate the references, they are not the main content of the paper, so they are useless here."
-                     f" DO NOTICE the name of entity should always be annotated with academic name, like 'Deep Learning' instead of 'DL'.")
-            i_say_show_user = f"[{i+1}/{n_fragment}] Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i][:200]}"
-            gpt_say = yield from request_gpt_model_in_new_thread_with_ui_alive(
-                i_say,
-                i_say_show_user,  # i_say=真正给chatgpt的提问， i_say_show_user=给用户看的提问
-                llm_kwargs,
-                chatbot,
-                history=[
-                    "The main idea of the previous section is?",
-                    last_iteration_result,
-                ],  # 迭代上一次的结果
-                sys_prompt="Extract the main idea of this section with Chinese.YOU SHALL NOT Translate author's name",  # 提示
-            )
-            iteration_results.append(gpt_say)
-            last_iteration_result = gpt_say
+        elif n_fragment>1:
 
+            yield from seg_sum(chatbot, iteration_results, last_iteration_result, llm_kwargs, max_word_total, n_fragment,
+                           paper_fragments)
+        else:
+            iteration_results.append(paper_fragments[0])
         ############################## <第 3 步，整理history，提取总结> ##################################
         final_results.extend(iteration_results)
         final_results.append(f"")
@@ -193,6 +177,31 @@ def make_brifing_inner(
 
     packer.cleanup()
     return out_path
+
+
+def seg_sum(chatbot, iteration_results, last_iteration_result, llm_kwargs, max_word_total, n_fragment, paper_fragments):
+    for i in range(n_fragment):
+        NUM_OF_WORD = max_word_total // n_fragment
+        i_say = (
+            f"Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i]},"
+            f" DO NOT transcribe the equations or formulas directly, but describe their mechanism and function in Chinese."
+            f" DO remember mention the charts' or tables' serial numbers and names in the way the were in the original text, they are high value info, you should add them all to the final result"
+            f" DO NOT try to recapitulate the references, they are not the main content of the paper, so they are useless here."
+            f" DO NOTICE the name of entity should always be annotated with academic name, like 'Deep Learning' instead of 'DL'.")
+        i_say_show_user = f"[{i + 1}/{n_fragment}] Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i][:200]}"
+        gpt_say = yield from request_gpt_model_in_new_thread_with_ui_alive(
+            i_say,
+            i_say_show_user,  # i_say=真正给chatgpt的提问， i_say_show_user=给用户看的提问
+            llm_kwargs,
+            chatbot,
+            history=[
+                "The main idea of the previous section is?",
+                last_iteration_result,
+            ],  # 迭代上一次的结果
+            sys_prompt="Extract the main idea of this section with Chinese.YOU SHALL NOT Translate author's name",  # 提示
+        )
+        iteration_results.append(gpt_say)
+        last_iteration_result = gpt_say
 
 
 @CatchException
@@ -281,7 +290,7 @@ class BriefingMaker(GptAcademicPluginTemplate):
 - 文章的性质：【技术报告和技术说明 | 专利文献 | 会议论文 | 学位论文 | 行业标准与规范 | 案例研究/项目报告 | 政策文件和研究报告 | 书籍章节 | 评论文章 | 跨学科研究 | 其他】 的其中一种
 - 核心工作：研究的主要贡献或创新点有那些？使用了什么方法或者技术？提取出最优秀的4到6点，一定要具体地说出技术或者方法的学名！
 - 解决了什么问题：这项研究通过其各个核心工作都各自在什么条件下解决了什么问题？有什么应用价值？
-- 与核心工作相对应的图或者表的标号与名字：这项研究中的核心工作是否有对应的图表或者表格？如果有，那么它们的名字是什么？
+- 与核心工作相对应的图或者表的标号与名字：这项研究中的核心工作是否有对应的图表或者表格？如果有，那么它们的名字是什么？没有的话就留空。
 - 得出的主要结论：最后的结果和效果怎么样？是否达到了预期的目标？可以如何改进？一定要指出具体的指标！
 - 文章的关键词：文章中研究内容所围绕的关键词是什么？给出最重要的5到8个关键词。
 - 研究最终会影响到的对象：这项研究对学术界或者工业界的那些对象有什么影响，是否有什么进一步的应用或者研究方向？
@@ -292,7 +301,7 @@ class BriefingMaker(GptAcademicPluginTemplate):
 【作者1的姓】, 【作者2的姓】, 【作者3的姓】等人，在【发表年份】里【研究背景】下的【文章的性质】中讨论了【核心工作1】在处理【解决的问题1】，此外其还讨论了【核心工作2】在处理【解决的问题2】，最终得到了【主要结论】的结论)，对【影响对象】有着【影响或者效果】.
 ）
 
-- 文章整个研究的流程图puml代码：根据文章中作者们实际的研究流程，绘制为puml代码，最后将其粘贴到这里，注意要保证学术严谨，你不应该使用抽象度较高的描述，而应该使用具体的技木或者方法名，确保每一步之间都有逻辑联系，每一个流程环节都是有意义的，顺带记住多使用note。
+- 文章整个研究的流程图puml代码：根据文章中作者们实际的研究流程，按照puml的流程图代码规范给出文章的puml流程图代码，最后将其粘贴到这里，注意要保证学术严谨，你不应该使用抽象度较高的描述，而应该使用具体的技木或者方法名，确保每一步之间都有逻辑联系，每一个流程环节都是有意义的，顺带记住多使用note，代码使用md的代码块表示，代码块外不应该有额外的说明，最后的结果应该只有唯一的一个代码块，所有的内容都集中在一副流程图里面。
 请确保你的回答简洁明了，并按照以下格式组织信息，下面是一个模板用作参考（注意：最后你给出的提取内容不应该带【】）：
 
 文章标题：【文章标题】
