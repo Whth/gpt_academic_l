@@ -1,6 +1,7 @@
 import tempfile
 import zipfile
 from pathlib import Path
+from time import sleep
 from typing import List, TypeAlias
 from typing import Self
 
@@ -74,7 +75,7 @@ class ChapterOutline:
 你觉得先前给出的那个论文综述是否和我上面给出章节提纲具有相关性？以"是否存在可迁移到我的文章的理论或者内容/方法"作为一个判断标准,
 额外的，还可以考虑这篇论文中是否可以将其中的一些比较有代表性的图表在我的综述中作为引用说明，这也可以作为判断标准。
 如果是肯定的话，也就是说有关系，这个论文可以被用来作为我的论文的论述辅助材料的，就只回复关键字“{self.AFFIRMATIVE}”
-如果是否定的话，也就是说没有关系，这个论文基本完全不可以作为我的论文的论述辅助材料，就只回复关键字“{self.REJECT}”
+如果是否定的话，也就是说没有关系，这个论文基本不能很好的插入到上面提纲部分内作为论述辅助材料，就只回复关键字“{self.REJECT}”
 除了关键字外不要有额外的说明！你只需要回复“{self.AFFIRMATIVE}”或者“{self.REJECT}”两个关键字中的其中一个，你的回复中如果存在其他的任何解释都会被视为非法输入。
 """
 
@@ -229,7 +230,7 @@ class ArticleMaker(GptAcademicPluginTemplate):
             "max_judges_threads": ArgProperty(
                 title="max_judges_threads",
                 description="the max number of threads to use for judging",
-                default_value=int(5).__str__(),
+                default_value=int(3).__str__(),
                 type="string",
             ).model_dump_json(),
             "max_write_threads": ArgProperty(
@@ -282,7 +283,7 @@ class ArticleMaker(GptAcademicPluginTemplate):
         for parg in chap_outlines:
             yield from parg.update_related_references(read_contents)
         dump_materials(chap_outlines, chatbot, root)
-
+        sleep(20)
         gpt_res:List[str] = yield from write_article(chap_outlines, chatbot, llm_kwargs, max_write_threads)
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 
