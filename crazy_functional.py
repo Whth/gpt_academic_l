@@ -55,6 +55,8 @@ def get_crazy_functions():
     from crazy_functions.articles.make_pdf_briefing import BriefingMaker
     from crazy_functions.articles.make_articles import ArticleMaker
     from crazy_functions.articles.make_article_enhance import MakeArticleEnhance
+    from crazy_functions.articles.make_article_write_only import ArticleMakerLite
+
 
     function_plugins = {
         "多媒体智能体": {
@@ -446,6 +448,19 @@ def get_crazy_functions():
             }
         }
     )
+    function_plugins.update(
+        {
+            "根据生成材料直接生成论文| Whth": {
+                "Group": "学术",
+                "Color": "stop",
+                "AsButton": False,
+                "Info": "根据生成材料直接生成论文 | 输入参数为路径",
+                "Function": None,
+                "Class": ArticleMakerLite,
+            }
+        }
+    )
+
 
     # -=--=- 尚未充分测试的实验性插件 & 需要额外依赖的插件 -=--=-
     try:
