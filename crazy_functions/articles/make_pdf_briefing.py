@@ -90,7 +90,7 @@ def make_brifing_inner(
     all_file_count = len(file_manifest)
     out_path = ""
     for f_no, file_path in enumerate(file_manifest):
-        logger.info(info := f"begin analysis on: {file_path.as_posix()}")
+        logger.info(info := f"[{f_no+1}/{all_file_count}]begin analysis on: {file_path.as_posix()}")
         ############################## <第 0 步，切割PDF> ##################################
         # 递归地切割PDF文件，每一块（尽量是完整的一个section，比如introduction，experiment等，必要时再进行切割）
         # 的长度必须小于 2500 个 Token
@@ -127,13 +127,13 @@ def make_brifing_inner(
         last_iteration_result = paper_meta  # 初始值是摘要
 
         n_fragment = len(paper_fragments)
-        if n_fragment >= 20:
-            logger.warning("文章极长，可能无法达到预期效果")
-        elif n_fragment>1:
 
+        if n_fragment>1:
+            logger.info(f"the paper is long, divided into {n_fragment} fragments. Start info pre-extraction.")
             yield from seg_sum(chatbot, iteration_results, last_iteration_result, llm_kwargs, max_word_total, n_fragment,
                            paper_fragments)
         else:
+            logger.info(f"the paper is short, only one fragment. Skip info pre-extraction.")
             iteration_results.append(paper_fragments[0])
         ############################## <第 3 步，整理history，提取总结> ##################################
         final_results.extend(iteration_results)
@@ -331,13 +331,13 @@ class BriefingMaker(GptAcademicPluginTemplate):
             "title": ArgProperty(
                 title="research field",
                 description="The research field",
-                default_value="",
+                default_value="小微风电叶片仿真分析及性能优化研究",
                 type="string",
             ).model_dump_json(),
             "token_restrains": ArgProperty(
                 title="token restrains",
                 description="The token restrains, in order, max api token|max briefing token|max segment token",
-                default_value=f"{int(32000*0.65)}|{3800}|{int(21000)}",
+                default_value=f"{int(80000)}|{3800}|{int(80000)}",
                 type="string",
             ).model_dump_json(),
             "format_constraint": ArgProperty(
