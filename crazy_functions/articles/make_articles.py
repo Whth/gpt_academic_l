@@ -73,7 +73,6 @@ class ChapterOutline:
 
 你觉得先前给出的那个论文综述是否和我上面给出章节提纲具有相关性？以"是否存在可迁移到我的文章的理论或者内容/方法"作为一个判断标准,
 额外的，还可以考虑这篇论文中是否可以将其中的一些比较有代表性的图表在我的综述中作为引用说明，这也可以作为判断标准。
-额外的，参考其研究流程图，其中是否存在可以迁移到我的文章中的研究流程，这也可以作为判断标准。
 如果是肯定的话，也就是说有关系，这个论文可以被用来作为我的论文的论述辅助材料的，就只回复关键字“{self.AFFIRMATIVE}”
 如果是否定的话，也就是说没有关系，这个论文基本完全不可以作为我的论文的论述辅助材料，就只回复关键字“{self.REJECT}”
 除了关键字外不要有额外的说明！你只需要回复“{self.AFFIRMATIVE}”或者“{self.REJECT}”两个关键字中的其中一个，你的回复中如果存在其他的任何解释都会被视为非法输入。
@@ -98,7 +97,6 @@ class ChapterOutline:
 还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。
 同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。
 额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用“图-叶片疲劳曲线”，你可以说“如图-叶片疲劳曲线所示，表明了什么什么，印证了什么什么，...”。
-额外的，对于一些比较出彩的流程图的某一些流程环节，也可以作为论述的参考，记住也需要参考论述后面加入占位标签字段。
 额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”。
 章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。
 除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。      
@@ -231,13 +229,13 @@ class ArticleMaker(GptAcademicPluginTemplate):
             "max_judges_threads": ArgProperty(
                 title="max_judges_threads",
                 description="the max number of threads to use for judging",
-                default_value=int(6).__str__(),
+                default_value=int(5).__str__(),
                 type="string",
             ).model_dump_json(),
             "max_write_threads": ArgProperty(
                 title="max_write_threads",
                 description="the max number of threads to use for writing",
-                default_value=int(2).__str__(),
+                default_value=int(1).__str__(),
                 type="string",
             ).model_dump_json(),
         }
