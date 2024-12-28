@@ -153,7 +153,7 @@ def make_brifing_inner(
             i_say += "额外的：\n"
             i_say += additional_constrain
         i_say, final_results = input_clipping(i_say, final_results, max_token_limit=max_word_total)
-        gpt_say = yield from request_gpt_model_in_new_thread_with_ui_alive(
+        gpt_say:str = yield from request_gpt_model_in_new_thread_with_ui_alive(
             inputs=i_say,
             inputs_show_user="开始最终总结",
             llm_kwargs=llm_kwargs,
@@ -161,7 +161,13 @@ def make_brifing_inner(
             history=final_results,
             sys_prompt=f"According to the given format requirements, complete the content extraction. Please ensure that the extracted content does not exceed {max_briefing_len} words",
         )
-        final_results.append(gpt_say)
+
+        final_results.append(gpt_say
+                             .replace("**", "")
+                             .replace("- ","")
+                             .replace("### ","")
+                             .replace("## ","")
+                             .replace("# ",""))
 
         ############################## <第 4 步，设置一个token上限> ##################################
         _, final_results = input_clipping("", final_results, max_token_limit=max_word_total)
@@ -290,7 +296,7 @@ class BriefingMaker(GptAcademicPluginTemplate):
 - 文章的性质：【技术报告和技术说明 | 专利文献 | 会议论文 | 学位论文 | 行业标准与规范 | 案例研究/项目报告 | 政策文件和研究报告 | 书籍章节 | 评论文章 | 跨学科研究 | 其他】 的其中一种
 - 核心工作：研究的主要贡献或创新点有那些？使用了什么方法或者技术？提取出最优秀的4到6点，一定要具体地说出技术或者方法的学名！
 - 解决了什么问题：这项研究通过其各个核心工作都各自在什么条件下解决了什么问题？有什么应用价值？
-- 与核心工作相对应的图或者表的标号与名字：这项研究中的核心工作是否有对应的图表或者表格？如果有，那么它们的名字是什么？没有的话就留空。
+- 与核心工作相对应的图或者表的标号与名字：这项研究中的核心工作是否有对应的图表或者表格？如果有，提取它们所有的标号与名字，不要翻译，直接用原名。没有的话就留空。
 - 得出的主要结论：最后的结果和效果怎么样？是否达到了预期的目标？可以如何改进？一定要指出具体的指标！
 - 文章的关键词：文章中研究内容所围绕的关键词是什么？给出最重要的5到8个关键词。
 - 研究最终会影响到的对象：这项研究对学术界或者工业界的那些对象有什么影响，是否有什么进一步的应用或者研究方向？
@@ -300,8 +306,6 @@ class BriefingMaker(GptAcademicPluginTemplate):
 规范(注意:【】和其中的文字共同组成并指代了一个提取到的内容)：
 【作者1的姓】, 【作者2的姓】, 【作者3的姓】等人，在【发表年份】里【研究背景】下的【文章的性质】中讨论了【核心工作1】在处理【解决的问题1】，此外其还讨论了【核心工作2】在处理【解决的问题2】，最终得到了【主要结论】的结论)，对【影响对象】有着【影响或者效果】.
 ）
-
-- 文章整个研究的流程图puml代码：根据文章中作者们实际的研究流程，按照puml的流程图代码规范给出文章的puml流程图代码，最后将其粘贴到这里，注意要保证学术严谨，你不应该使用抽象度较高的描述，而应该使用具体的技木或者方法名，确保每一步之间都有逻辑联系，每一个流程环节都是有意义的，顺带记住多使用note，代码使用md的代码块表示，代码块外不应该有额外的说明，最后的结果应该只有唯一的一个代码块，所有的内容都集中在一副流程图里面。
 请确保你的回答简洁明了，并按照以下格式组织信息，下面是一个模板用作参考（注意：最后你给出的提取内容不应该带【】）：
 
 文章标题：【文章标题】
@@ -318,7 +322,6 @@ class BriefingMaker(GptAcademicPluginTemplate):
 研究达到的效果或影响：【效果或影响】
 研究的局限性：【局限性】
 最终概述：【最终概述】
-文章整个研究的流程图puml代码：【流程图代码】
 """
 
         gui_definition = {
