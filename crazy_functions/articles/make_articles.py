@@ -61,11 +61,18 @@ class ChapterOutline:
         self.references.clear()
         self.references.extend(references)
         return self
-    def load_references(self)->List[Briefing]:
+
+    @staticmethod
+    def load_references(ref_paths:List[Path])->List[Briefing]:
         """
         读取文献综述的内容
         """
-        return [p.read_text("utf-8") for p in self.references]
+        return [p.read_text("utf-8") for p in ref_paths]
+    def load_self_references(self)->List[Briefing]:
+        """
+        读取文献综述的内容
+        """
+        return self.load_references(self.references)
     def relation_asm(self, briefing: Briefing) -> str:
         """
         生成用于判断文献综述与提纲关系的 ASM 任务
@@ -86,7 +93,7 @@ class ChapterOutline:
         """
         生成用于撰写文章内容的 ASM 任务
         """
-        ref_materials = self.load_references()
+        ref_materials = self.load_self_references()
         asm_ref_material: str = "\n\n".join([f"[{i}]: {ref_material}" for i, ref_material in enumerate(ref_materials)])
         return f"""
 {asm_ref_material}       
@@ -96,15 +103,15 @@ class ChapterOutline:
 
 {self.content}
 
-请你根据上面的提纲，结合上面的文献综述，为我完成这个章节的撰写，注意不要直接复制粘贴，要进行适当的融合和改写，使得这个章节的内容更加丰富和完整。
-并且，一定要注意在正文中引用时要带上前三个作者的姓与年份，这里假设作者A，B，C是虚拟的的作者，正常情况下你需要使用实际对应的作者名来替换它们,一般如果作者有三个以上，你可以说“作者A，作者B，作者C（2013）等人做了什么什么,...”。如果作者只有两个，你可以说“作者A与作者B（2013）做了什么什么,...”。如果只有一个人，你可以说“作者A（2013）做了什么什么,...”。
+请你根据上面的提纲，结合上面的文献综述，为我完成这个章节的撰写，注意不要直接复制粘贴，要进行适当的融合和改写，使得这个章节的内容更加丰富和完整.
+并且，一定要注意在正文中引用时要带上前三个作者的姓与年份，这里假设作者A，B，C是虚拟的的作者，正常情况下你需要使用实际对应的作者名来替换它们,一般如果一篇论文有作者三个以上，你可以说“作者A，作者B，作者C等人（2013）做了什么什么,...”。如果作者只有两个，你可以说“作者A与作者B（2013）做了什么什么,...”。如果只有一个人，你可以说“作者A（2013）做了什么什么,...”。
 还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。
 同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。
-额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用“图-叶片疲劳曲线”，你可以说“如图-叶片疲劳曲线所示，表明了什么什么，印证了什么什么，...”。
+额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina（2016）的论文中的“图-叶片疲劳曲线”，你可以说“如图-叶片疲劳曲线<Nina 2016>所示，表明了什么什么，印证了什么什么，...”。
 额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”。
 章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。
 除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。      
-
+给出的所有的{len(ref_materials)}篇文献均需要被作为引文融入到我的这一个章节内，不允许有遗漏！
 
 """
 
@@ -114,7 +121,7 @@ class ChapterOutline:
         """
         logger.info(f"开始处理{self.chap_header}的文献综述,过滤出符合条件的文献")
 
-        briefings=self.load_references()
+        briefings=self.load_references(briefings_path)
 
         res = yield from (
             request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency(
@@ -229,7 +236,7 @@ class ArticleMaker(GptAcademicPluginTemplate):
             ).model_dump_json(),  # 主输入，自动从输入框同步
             "outline": ArgProperty(
                 title="outline",
-                description="the outline of the article,note that each chapter needs to be separated by '\\n\\n'",
+                description="the outline of the article,note that each chapter needs to be separated by '\\n\\n', DO NOT add chapter like '参考文献'",
                 default_value="""
 3 仿真分析
 3.1 气动性能仿真
@@ -265,7 +272,7 @@ class ArticleMaker(GptAcademicPluginTemplate):
             "max_judges_threads": ArgProperty(
                 title="max_judges_threads",
                 description="the max number of threads to use for judging",
-                default_value=int(3).__str__(),
+                default_value=int(2).__str__(),
                 type="string",
             ).model_dump_json(),
             "max_write_threads": ArgProperty(
@@ -316,12 +323,13 @@ class ArticleMaker(GptAcademicPluginTemplate):
 
         for parg in chap_outlines:
             yield from parg.update_related_references(ref_paths)
+            logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
         sleep(20)
         gpt_res:List[str] = yield from write_article(chap_outlines, chatbot, llm_kwargs, max_write_threads)
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 
-
+        dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
 
         yield from update_ui(chatbot=chatbot, history=history)
         return out_path
