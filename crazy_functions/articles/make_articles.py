@@ -9,7 +9,7 @@ from typing import Self
 from loguru import logger
 
 from crazy_functions.crazy_utils import (
-    request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency,
+    request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency
 )
 from crazy_functions.plugin_template.plugin_class_template import (
     GptAcademicPluginTemplate,
@@ -89,7 +89,7 @@ class ChapterOutline:
             f"除了关键字外不要有额外的说明！你只需要回复“{self.AFFIRMATIVE}”或者“{self.REJECT}”两个关键字中的其中一个，你的回复中如果存在其他的任何解释都会被视为非法输入。"
         )
 
-    def write_asm(self) -> str:
+    def write_batch_asm(self) -> str:
         """
         生成用于撰写文章内容的 ASM 任务
         """
@@ -114,6 +114,43 @@ class ChapterOutline:
 给出的所有的{len(ref_materials)}篇文献均需要被作为引文融入到我的这一个章节内，不允许有遗漏！
 
 """
+
+
+
+    def _write_iter_asm_inner(self,grouped:List[Briefing],written_article_place_holder:str)->str:
+        """
+        生成用于增量撰写文章内容的 ASM 任务
+        """
+        asm_ref_material: str = "\n\n".join([f"[{i}]: {ref_material}" for i, ref_material in enumerate(grouped)])
+        return (
+            f"{asm_ref_material}"
+            f"现在开始说明任务，我在编写题目为“{self.TITLE}”的论文，这个是我的论文里面的部分提纲：\n\n"
+            f"{self.content}\n\n"
+            f"现在我完成了如下的一部分的编写：\n\n"
+            f"{written_article_place_holder}\n\n"
+            f"为我完成这个章节的剩余部分的撰写，注意不要直接复制粘贴，要进行适当的融合和改写，注意一定要使得行文流程，具有逻辑，使得这个章节的内容更加丰富和完整.\n"
+            "并且，一定要注意在正文中引用时要带上前三个作者的姓与年份，这里假设作者A，B，C是虚拟的的作者，正常情况下你需要使用实际对应的作者名来替换它们,"
+            "一般如果一篇论文有作者三个以上，你可以说“作者A，作者B，作者C等人（2013）做了什么什么,...”。"
+            "如果作者只有两个，你可以说“作者A与作者B（2013）做了什么什么,...”。如果只有一个人，你可以说“作者A（2013）做了什么什么,...”。\n"
+            "还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。"
+            "例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。\n"
+            "同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。\n"
+            "额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，"
+            "你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina（2016）的论文中的“图-叶片疲劳曲线”，"
+            "你可以说“如图-叶片疲劳曲线<Nina 2016>所示，表明了什么什么，印证了什么什么，...”。\n"
+            "额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”,直接给出结果就可以。\n"
+            "章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。"
+            "除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。"      
+            f"请你根据上面的提纲和我已经完成的部分内容，将上面的{len(grouped)}篇文献综述全部增量加入到我的已完成的部分里面，不允许有遗漏，加入的时候不应该损坏原有的文献引用"
+        )
+
+    def write_iter_asm(self,per_iter_size:int=4,written_article_place_holder:str="__written__") -> List[str]:
+        """
+        生成用于增量撰写文章内容的 ASM 任务
+        """
+        ref_materials:List[Briefing] = self.load_self_references()
+        grouped_ref_materials = [ref_materials[i:i + per_iter_size] for i in range(0, len(ref_materials), per_iter_size)]
+        return [self._write_iter_asm_inner(grouped,written_article_place_holder) for grouped in grouped_ref_materials]
 
     def update_related_references(self, briefings_path: List[Path])->Self:
         """
@@ -378,7 +415,7 @@ def dump_materials(chap_outlines, chatbot, root):
     """
     packer = ContentPacker()
     for chap in chap_outlines:
-        packer.add_content(chap.chap_header, chap.write_asm())
+        packer.add_content(chap.chap_header, chap.write_batch_asm())
     packer.pack(pre_obj := (root / (f_name := f"{ChapterOutline.TITLE}.zip")).as_posix()).cleanup()
     promote_file_to_downloadzone(pre_obj, f_name, chatbot=chatbot)
 
@@ -393,7 +430,7 @@ def write_article( chap_outlines, chatbot, llm_kwargs, max_write_threads)->List[
         handle_token_exceed=False,
         llm_kwargs=llm_kwargs,
         chatbot=chatbot,
-        inputs_array=[chap.write_asm() for chap in chap_outlines],
+        inputs_array=[chap.write_batch_asm() for chap in chap_outlines],
         inputs_show_user_array=[f"Dealing with {chap.chap_header}" for chap in chap_outlines],
         history_array=[[]] * len(chap_outlines),
         sys_prompt_array=[f'You are expert about how to write a paper about "{ChapterOutline.TITLE}" with given references']
