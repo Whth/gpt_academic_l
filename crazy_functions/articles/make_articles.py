@@ -139,10 +139,10 @@ class ChapterOutline:
             "你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina, Rick, Wen等人（2016）的论文中的“图-叶片疲劳曲线”，"
             "你可以说“如图-叶片疲劳曲线<Nina Rick Wen 2016>所示，表明了什么什么，印证了什么什么，...”。\n"
             "额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”,直接给出结果就可以。\n"
-            "章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。"
             "除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。"      
-            f"请你根据上面的提纲和我已经完成的部分内容，将上面的{len(grouped)}篇文献综述全部增量插入到我的已完成的部分里面，不允许有遗漏，插入的时候不应该损坏原有的文献引用，"
-            f"保证插入位置的逻辑性和流畅性，使得整个章节的内容更加丰富和完整。尽量不要添加新的章节！"
+            f"请你根据上面的提纲和我已经完成的部分内容，将上面的{len(grouped)}篇文献综述全部增量插入到我的已完成的部分章节里面，不允许有遗漏，插入的时候不应该损坏原有的文献引用，"
+            f"保证插入位置的逻辑性和流畅性，使得整个章节的内容更加丰富和完整！"
+            "章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。"
         )
 
     def write_iter_asm(self,per_iter_size:int=4,written_article_place_holder:str="__written__") -> List[str]:
@@ -368,11 +368,11 @@ class ArticleMaker(GptAcademicPluginTemplate):
             yield from parg.update_related_references(ref_paths,pre_defined_reference)
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
+        dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
         sleep(20)
         gpt_res:List[str] = yield from write_article(chap_outlines, chatbot, llm_kwargs, max_write_threads)
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 
-        dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
 
         yield from update_ui(chatbot=chatbot, history=history)
         return out_path

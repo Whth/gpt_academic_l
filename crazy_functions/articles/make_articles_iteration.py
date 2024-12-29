@@ -124,11 +124,11 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
             yield from parg.update_related_references(ref_paths,pre_defined_reference)
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
+        dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
         sleep(20)
         gpt_res:List[str] = yield from write_article_iter(chap_outlines, chatbot, llm_kwargs, int(plugin_kwargs["iter_group_size"]))
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 
-        dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
 
         yield from update_ui(chatbot=chatbot, history=history)
         return out_path
