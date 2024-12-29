@@ -1,3 +1,4 @@
+import json
 import tempfile
 import zipfile
 from pathlib import Path
@@ -29,7 +30,7 @@ class ChapterOutline:
     MAX_WORKER = 4
     TITLE=''
 
-    def __init__(self, content: str, llm_kwargs, chatbot,references:List[str]=None):
+    def __init__(self, content: str, llm_kwargs, chatbot,references:List[Path]=None):
         self.content = content
         self.references = references or []
         self._llm_kwargs = llm_kwargs
@@ -56,34 +57,36 @@ class ChapterOutline:
         else:
             return self.content[:20]
 
-    def set_references(self, references: List[str])->Self:
+    def set_references(self, references: List[Path])->Self:
         self.references.clear()
         self.references.extend(references)
         return self
+    def load_references(self)->List[Briefing]:
+        """
+        读取文献综述的内容
+        """
+        return [p.read_text("utf-8") for p in self.references]
     def relation_asm(self, briefing: Briefing) -> str:
         """
         生成用于判断文献综述与提纲关系的 ASM 任务
         """
-        return f"""
-现在有一篇这个论文的综述，如下：
-{briefing}
-
-现在说明任务，我在编写题目为“{self.TITLE}”的论文，这个是我的论文里面的部分提纲:
-
-{self.content}
-
-你觉得先前给出的那个论文综述是否和我上面给出章节提纲具有相关性？以"是否存在可迁移到我的文章的理论或者内容/方法"作为一个判断标准,
-额外的，还可以考虑这篇论文中是否可以将其中的一些比较有代表性的图表在我的综述中作为引用说明，这也可以作为判断标准。
-如果是肯定的话，也就是说有关系，这个论文可以被用来作为我的论文的论述辅助材料的，就只回复关键字“{self.AFFIRMATIVE}”
-如果是否定的话，也就是说没有关系，这个论文基本不能很好的插入到上面提纲部分内作为论述辅助材料，就只回复关键字“{self.REJECT}”
-除了关键字外不要有额外的说明！你只需要回复“{self.AFFIRMATIVE}”或者“{self.REJECT}”两个关键字中的其中一个，你的回复中如果存在其他的任何解释都会被视为非法输入。
-"""
+        return (
+            f"现在有一篇这个论文的综述，如下：\n"
+            f"{briefing}\n\n"
+            f"现在说明任务，我在编写题目为“{self.TITLE}”的论文，这个是我的论文里面的部分提纲:\n\n"
+            f"{self.content}\n\n"
+            f"你觉得先前给出的那个论文综述是否和我上面给出章节提纲具有相关性？以\"是否存在可迁移到我的文章的理论或者内容/方法\"作为一个判断标准,\n"
+            f"额外的，还可以考虑这篇论文中是否可以将其中的一些比较有代表性的图表在我的综述中作为引用说明，这也可以作为判断标准。\n"
+            f"如果是肯定的话，也就是说有关系，这个论文可以被用来作为我的论文的论述辅助材料的，就只回复关键字“{self.AFFIRMATIVE}”\n"
+            f"如果是否定的话，也就是说没有关系，这个论文基本不能很好的插入到上面提纲部分内作为论述辅助材料，就只回复关键字“{self.REJECT}”\n"
+            f"除了关键字外不要有额外的说明！你只需要回复“{self.AFFIRMATIVE}”或者“{self.REJECT}”两个关键字中的其中一个，你的回复中如果存在其他的任何解释都会被视为非法输入。"
+        )
 
     def write_asm(self) -> str:
         """
         生成用于撰写文章内容的 ASM 任务
         """
-        ref_materials = self.references
+        ref_materials = self.load_references()
         asm_ref_material: str = "\n\n".join([f"[{i}]: {ref_material}" for i, ref_material in enumerate(ref_materials)])
         return f"""
 {asm_ref_material}       
@@ -105,11 +108,13 @@ class ChapterOutline:
 
 """
 
-    def update_related_references(self, briefings: List[Briefing])->Self:
+    def update_related_references(self, briefings_path: List[Path])->Self:
         """
         用于处理文献综述与提纲关系的 ASM 任务
         """
         logger.info(f"开始处理{self.chap_header}的文献综述,过滤出符合条件的文献")
+
+        briefings=self.load_references()
 
         res = yield from (
             request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency(
@@ -123,11 +128,11 @@ class ChapterOutline:
                 max_workers=self.MAX_WORKER,
             )
         )
-        self.set_references(self.check_pass(briefings, res[1::2]))
+        self.set_references(self.check_pass(briefings_path, res[1::2]))
         return self
 
     @classmethod
-    def check_pass(cls, refs: List[Briefing], response: List[str]) -> List[Briefing]:
+    def check_pass(cls, refs: List[Path], response: List[str]) -> List[Path]:
         """
         检查文献综述与提纲关系的 ASM 任务的回答是否符合要求
         """
@@ -178,6 +183,36 @@ class ContentPacker:
         self.files.clear()
 
 
+
+class CitationMaker:
+
+    def __init__(self,ref_paths:List[Path]):
+        self._ref_paths = ref_paths
+
+    def remove_used_refs(self, used_refs:List[Path])->Self:
+        """
+        从参考文献列表中移除已经使用过的文献
+        """
+        self._ref_paths = list(filter(lambda x: x not in used_refs, self._ref_paths))
+
+        return self
+    @property
+    def ref_path(self)->List[Path]:
+        return self._ref_paths
+    def set_refs(self, refs:List[Path])->Self:
+        self._ref_paths.clear()
+        self._ref_paths.extend(refs)
+        return self
+
+    def remove_all_used_ref(self,chaps:List[ChapterOutline])->Self:
+        """
+        从参考文献列表中移除已经使用过的文献
+        """
+        used_refs = []
+        for chap in chaps:
+            used_refs.extend(chap.references)
+        self.remove_used_refs(used_refs)
+        return self
 class ArticleMaker(GptAcademicPluginTemplate):
     """
     用于生成文章内容的插件
@@ -270,7 +305,6 @@ class ArticleMaker(GptAcademicPluginTemplate):
         yield from update_ui(chatbot=chatbot, history=[])
         ref_paths: List[Path] = list(root.rglob("*.txt"))
 
-        read_contents: List[str] = [path.read_text(encoding="utf-8") for path in ref_paths]
 
         chapters = plugin_kwargs["outline"].split("\n\n")
         title = plugin_kwargs["title"]
@@ -281,15 +315,40 @@ class ArticleMaker(GptAcademicPluginTemplate):
         chap_outlines = [ChapterOutline(content, llm_kwargs, chatbot) for content in chapters]
 
         for parg in chap_outlines:
-            yield from parg.update_related_references(read_contents)
+            yield from parg.update_related_references(ref_paths)
         dump_materials(chap_outlines, chatbot, root)
         sleep(20)
         gpt_res:List[str] = yield from write_article(chap_outlines, chatbot, llm_kwargs, max_write_threads)
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 
+
+
         yield from update_ui(chatbot=chatbot, history=history)
         return out_path
 
+
+
+def dump_ref_usage_manifest(chaps: List['ChapterOutline'], all_refs: List[Path], chatbot):
+    """
+    将文献综述与提纲的关系保存为ZIP文件
+    """
+    cite_maker = CitationMaker(all_refs)
+    manifest = {}
+
+    for chap in chaps:
+        manifest[chap.chap_header] = [p.stem for p in chap.references]
+
+    # 添加未使用的引用
+    unused_refs = cite_maker.remove_all_used_ref(chaps)
+    manifest["UNUSED"] = [p.stem for p in unused_refs.ref_path]
+
+    # 使用 tempfile 创建一个命名的临时文件
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False, suffix='.json') as temp_file:
+        temp_file_path = temp_file.name
+        json.dump(manifest, temp_file, indent=2)
+
+    # 提升文件到下载区域，并指定文件名为 "citation_info.json"
+    promote_file_to_downloadzone(temp_file_path, "citation_info.json", chatbot=chatbot)
 def dump_final_result( chap_outlines, chatbot, gpt_res, root):
     """
     将文章内容生成为ZIP文件
