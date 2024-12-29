@@ -6,6 +6,7 @@ from typing import Self
 
 from loguru import logger
 
+from crazy_functions.articles.make_articles import remove_markdown_syntax
 from crazy_functions.crazy_utils import input_clipping
 from crazy_functions.crazy_utils import read_and_clean_pdf_text
 from crazy_functions.crazy_utils import request_gpt_model_in_new_thread_with_ui_alive
@@ -162,14 +163,7 @@ def make_brifing_inner(
             sys_prompt=f"According to the given format requirements, complete the content extraction. Please ensure that the extracted content does not exceed {max_briefing_len} words",
         )
 
-        final_results.append(gpt_say
-                             .replace("**", "")
-                             .replace("- ","")
-                             .replace("### ","")
-                             .replace("## ","")
-                             .replace("# ","")
-                             .replace("【","")
-                             .replace("】",""))
+        final_results.append(remove_markdown_syntax(gpt_say))
 
         ############################## <第 4 步，设置一个token上限> ##################################
         _, final_results = input_clipping("", final_results, max_token_limit=max_word_total)

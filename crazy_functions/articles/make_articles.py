@@ -455,3 +455,19 @@ def write_article( chap_outlines, chatbot, llm_kwargs, max_write_threads)->List[
     )
     gpt_res:List[str] = collections[1::2]
     return gpt_res
+
+def remove_markdown_syntax(content:str)->str:
+    """
+    移除Markdown语法
+    """
+    return (content
+            .replace("```","")
+            .replace("```plaintext","")
+            .replace("**","")
+            .replace("*","")
+            .replace("# ","")
+            .replace("## ","")
+            .replace("### ","")
+            .replace("#","")
+            .replace("> ","")
+            .replace("~~",""))
