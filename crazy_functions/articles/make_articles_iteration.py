@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from time import sleep
 from typing import List, TypeAlias
 
 from loguru import logger
@@ -128,7 +127,6 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
         dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
-        sleep(20)
         gpt_res:List[str] = yield from write_article_iter(chap_outlines, chatbot, llm_kwargs, int(plugin_kwargs["iter_group_size"]))
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
 

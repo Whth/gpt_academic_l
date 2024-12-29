@@ -2,7 +2,6 @@ import json
 import tempfile
 import zipfile
 from pathlib import Path
-from time import sleep
 from typing import List, TypeAlias, Dict
 from typing import Self
 
@@ -39,6 +38,9 @@ class ChapterOutline:
 
     @property
     def chap_header(self) -> str:
+        """
+        获取章节标题
+        """
         segs = self.content.split("\n")
         if len(segs) > 1:
             return (
@@ -58,6 +60,9 @@ class ChapterOutline:
             return self.content[:20]
 
     def set_references(self, references: List[Path])->Self:
+        """
+        设置文献综述的路径
+        """
         self.references.clear()
         self.references.extend(references)
         return self
@@ -105,9 +110,9 @@ class ChapterOutline:
 
 请你根据上面的提纲，结合上面的文献综述，为我完成这个章节的撰写，注意不要直接复制粘贴，要进行适当的融合和改写，使得这个章节的内容更加丰富和完整.
 并且，一定要注意在正文中引用时要带上前三个作者的姓与年份，这里假设作者A，B，C是虚拟的的作者，正常情况下你需要使用实际对应的作者名来替换它们,一般如果一篇论文有作者三个以上，你可以说“作者A，作者B，作者C等人（2013）做了什么什么,...”。如果作者只有两个，你可以说“作者A与作者B（2013）做了什么什么,...”。如果只有一个人，你可以说“作者A（2013）做了什么什么,...”。
-还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。
-同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。
-额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina, Rick, Wen等人（2016）的论文中的“图-叶片疲劳曲线”，你可以说“如图-叶片疲劳曲线<Nina Rick Wen 2016>所示，表明了什么什么，印证了什么什么，...”。
+还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）做了什么什么，...”。
+同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019），Bob（2024）做了什么什么，...”。
+额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina, Rick, Wen等人（2016）的论文中的“图-叶片疲劳曲线”，你可以说“如Nina, Rick, Wen等人（2016）的图-叶片疲劳曲线所示，表明了什么什么，印证了什么什么，...”。
 额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”。
 章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。
 除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。      
@@ -133,11 +138,11 @@ class ChapterOutline:
             "一般如果一篇论文有作者三个以上，你可以说“作者A，作者B，作者C等人（2013）做了什么什么,...”。"
             "如果作者只有两个，你可以说“作者A与作者B（2013）做了什么什么,...”。如果只有一个人，你可以说“作者A（2013）做了什么什么,...”。\n"
             "还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。"
-            "例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。\n"
-            "同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。\n"
+            "例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）做了什么什么，...”。\n"
+            "同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019），Bob（2024）做了什么什么，...”。\n"
             "额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，"
             "你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina, Rick, Wen等人（2016）的论文中的“图-叶片疲劳曲线”，"
-            "你可以说“如图-叶片疲劳曲线<Nina Rick Wen 2016>所示，表明了什么什么，印证了什么什么，...”。\n"
+            "你可以说“如Nina, Rick, Wen等人（2016）的图-叶片疲劳曲线所示，表明了什么什么，印证了什么什么，...”。\n"
             "额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”,直接给出结果就可以。\n"
             "除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。"      
             f"请你根据上面的提纲和我已经完成的部分内容，将上面的{len(grouped)}篇文献综述全部增量插入到我的已完成的部分章节里面，不允许有遗漏，插入的时候不应该损坏原有的文献引用，"
@@ -162,7 +167,7 @@ class ChapterOutline:
         pre_defined_reference=pre_defined_reference or {}
         briefings_names=[briefing.name for briefing in briefings_path]
         if self.chap_header in pre_defined_reference and all([ref in briefings_names for ref in pre_defined_reference[self.chap_header]]):
-            logger.info(f"使用预设的文献综述关系{pre_defined_reference[self.chap_header]}")
+            logger.info(f"使用预设的文献综述关系， 共{len(pre_defined_reference[self.chap_header])}篇")
             self.set_references(list(filter(lambda x:x.name in pre_defined_reference[self.chap_header],briefings_path)))
         else:
             briefings=self.load_references(briefings_path)
@@ -235,6 +240,9 @@ class ContentPacker:
 
 
 class CitationMaker:
+    """
+    用于生成文章引用信息的工具类
+    """
 
     def __init__(self,ref_paths:List[Path]):
         self._ref_paths = ref_paths
@@ -248,8 +256,14 @@ class CitationMaker:
         return self
     @property
     def ref_path(self)->List[Path]:
+        """
+        获取参考文献列表
+        """
         return self._ref_paths
     def set_refs(self, refs:List[Path])->Self:
+        """
+        设置参考文献列表
+        """
         self._ref_paths.clear()
         self._ref_paths.extend(refs)
         return self
@@ -372,11 +386,8 @@ class ArticleMaker(GptAcademicPluginTemplate):
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
         dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)
-        sleep(20)
         gpt_res:List[str] = yield from write_article(chap_outlines, chatbot, llm_kwargs, max_write_threads)
         out_path = dump_final_result(chap_outlines, chatbot, gpt_res, root)
-
-
         yield from update_ui(chatbot=chatbot, history=history)
         return out_path
 
