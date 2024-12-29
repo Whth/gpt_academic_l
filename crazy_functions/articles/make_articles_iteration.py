@@ -110,7 +110,10 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
             yield from update_ui(chatbot=chatbot, history=history)
         yield from update_ui(chatbot=chatbot, history=[])
         ref_paths: List[Path] = list(root.rglob("*.txt"))
-        pre_defined_reference = json.loads((root / "citation_info.json").read_text("utf-8")) if (root / "citation_info.json").exists() else {}
+        jsons:List[Path]=list(root.rglob("*citation_info.json"))
+        pre_defined_reference={}
+        if jsons:
+            pre_defined_reference = json.loads(jsons.pop(0).read_text("utf-8"))
 
 
         chapters = plugin_kwargs["outline"].split("\n\n")

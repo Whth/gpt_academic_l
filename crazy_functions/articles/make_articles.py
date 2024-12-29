@@ -354,7 +354,10 @@ class ArticleMaker(GptAcademicPluginTemplate):
             yield from update_ui(chatbot=chatbot, history=history)
         yield from update_ui(chatbot=chatbot, history=[])
         ref_paths: List[Path] = list(root.rglob("*.txt"))
-        pre_defined_reference = json.loads((root / "citation_info.json").read_text("utf-8")) if (root / "citation_info.json").exists() else {}
+        jsons:List[Path]=list(root.rglob("*citation_info.json"))
+        pre_defined_reference={}
+        if jsons:
+            pre_defined_reference = json.loads(jsons.pop(0).read_text("utf-8"))
 
         chapters = plugin_kwargs["outline"].split("\n\n")
         title = plugin_kwargs["title"]
@@ -396,7 +399,7 @@ def dump_ref_usage_manifest(chaps: List['ChapterOutline'], all_refs: List[Path],
     # 使用 tempfile 创建一个命名的临时文件
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False, suffix='.json') as temp_file:
         temp_file_path = temp_file.name
-        json.dump(manifest, temp_file, indent=2)
+        json.dump(manifest, temp_file, indent=2,ensure_ascii=False)
 
     # 提升文件到下载区域，并指定文件名为 "citation_info.json"
     promote_file_to_downloadzone(temp_file_path, "citation_info.json", chatbot=chatbot)
