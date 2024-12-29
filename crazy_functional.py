@@ -1,6 +1,7 @@
 from loguru import logger
 
 from crazy_functions.VideoResource_GPT import 多媒体任务
+from crazy_functions.articles.make_articles_iteration import ArticleMakerIter
 from toolbox import (
     HotReload,
 )  # HotReload 的意思是热更新，修改函数插件后，不需要重启程序，代码直接生效
@@ -457,6 +458,18 @@ def get_crazy_functions():
                 "Info": "根据生成材料直接生成论文 | 输入参数为路径",
                 "Function": None,
                 "Class": ArticleMakerLite,
+            }
+        }
+    )
+    function_plugins.update(
+        {
+            "根据生成综述成组迭代生成论文| Whth": {
+                "Group": "学术",
+                "Color": "stop",
+                "AsButton": False,
+                "Info": "根据生成综述成组迭代生成论文 | 输入参数为路径",
+                "Function": None,
+                "Class": ArticleMakerIter,
             }
         }
     )
