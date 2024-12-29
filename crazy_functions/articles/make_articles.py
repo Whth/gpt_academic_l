@@ -3,7 +3,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 from time import sleep
-from typing import List, TypeAlias
+from typing import List, TypeAlias, Dict
 from typing import Self
 
 from loguru import logger
@@ -107,7 +107,7 @@ class ChapterOutline:
 并且，一定要注意在正文中引用时要带上前三个作者的姓与年份，这里假设作者A，B，C是虚拟的的作者，正常情况下你需要使用实际对应的作者名来替换它们,一般如果一篇论文有作者三个以上，你可以说“作者A，作者B，作者C等人（2013）做了什么什么,...”。如果作者只有两个，你可以说“作者A与作者B（2013）做了什么什么,...”。如果只有一个人，你可以说“作者A（2013）做了什么什么,...”。
 还有，要注意你在正文的引用中一定还要记得在年份后面加入一个占位标签字段，这些占位标签最后都会被我统一替换为引用的数字角标。例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。
 同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。
-额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina（2016）的论文中的“图-叶片疲劳曲线”，你可以说“如图-叶片疲劳曲线<Nina 2016>所示，表明了什么什么，印证了什么什么，...”。
+额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina, Rick, Wen等人（2016）的论文中的“图-叶片疲劳曲线”，你可以说“如图-叶片疲劳曲线<Nina Rick Wen 2016>所示，表明了什么什么，印证了什么什么，...”。
 额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”。
 章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。
 除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。      
@@ -136,12 +136,13 @@ class ChapterOutline:
             "例如，如果引用“Jack（2022）做了什么什么，...”，那么你就要在年份后面加入一个占位标签字段，比如“Jack（2022）<Jack 2022>做了什么什么，...”。\n"
             "同样的，如果你需要同时引用多篇论文，那么你就要在年份后面加入多个占位标签字段，比如“Sam（2019）<Sam 2019>，Bob（2024）<Bob 2024>做了什么什么，...”。\n"
             "额外的，你可以参考参考文献中的图表，如果图表中存在可以迁移到我的文章中的图表来作为对于特定内容的辅助说明，"
-            "你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina（2016）的论文中的“图-叶片疲劳曲线”，"
-            "你可以说“如图-叶片疲劳曲线<Nina 2016>所示，表明了什么什么，印证了什么什么，...”。\n"
+            "你可以在正文中引用这些图表，不要忘了在引用后面加入占位标签字段。引文直接在正文中使用图或表的名称，比如你要引用Nina, Rick, Wen等人（2016）的论文中的“图-叶片疲劳曲线”，"
+            "你可以说“如图-叶片疲劳曲线<Nina Rick Wen 2016>所示，表明了什么什么，印证了什么什么，...”。\n"
             "额外的，你不用在开始写的时候表示“好的”，也不用在写完了之后表示“完成了”,直接给出结果就可以。\n"
             "章节编号一定要按照我的提纲的来，不要自己随意增加或者减少章节。最后的你给出结果的末尾你也不用添加参考文献的尾注，我会自行添加。"
             "除了答案外不要有额外的说明！也不要使用#或者*，你应该严格按照x x.y x.y.z这样的标题序号规范排版。"      
-            f"请你根据上面的提纲和我已经完成的部分内容，将上面的{len(grouped)}篇文献综述全部增量加入到我的已完成的部分里面，不允许有遗漏，加入的时候不应该损坏原有的文献引用"
+            f"请你根据上面的提纲和我已经完成的部分内容，将上面的{len(grouped)}篇文献综述全部增量插入到我的已完成的部分里面，不允许有遗漏，插入的时候不应该损坏原有的文献引用，"
+            f"保证插入位置的逻辑性和流畅性，使得整个章节的内容更加丰富和完整。尽量不要添加新的章节！"
         )
 
     def write_iter_asm(self,per_iter_size:int=4,written_article_place_holder:str="__written__") -> List[str]:
@@ -152,27 +153,32 @@ class ChapterOutline:
         grouped_ref_materials = [ref_materials[i:i + per_iter_size] for i in range(0, len(ref_materials), per_iter_size)]
         return [self._write_iter_asm_inner(grouped,written_article_place_holder) for grouped in grouped_ref_materials]
 
-    def update_related_references(self, briefings_path: List[Path])->Self:
+    def update_related_references(self, briefings_path: List[Path],pre_defined_reference:Dict[str,List[str]]=None)->Self:
         """
         用于处理文献综述与提纲关系的 ASM 任务
         """
         logger.info(f"开始处理{self.chap_header}的文献综述,过滤出符合条件的文献")
 
-        briefings=self.load_references(briefings_path)
-
-        res = yield from (
-            request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency(
-                handle_token_exceed=False,
-                llm_kwargs=self._llm_kwargs,
-                chatbot=self._chatbot,
-                inputs_array=[self.relation_asm(briefing) for briefing in briefings],
-                inputs_show_user_array=[briefing.split("\n")[0] for briefing in briefings],
-                history_array=[[]] * len(briefings),
-                sys_prompt_array=[self._role] * len(briefings),
-                max_workers=self.MAX_WORKER,
+        pre_defined_reference=pre_defined_reference or {}
+        briefings_names=[briefing.name for briefing in briefings_path]
+        if self.chap_header in pre_defined_reference and all([ref in briefings_names for ref in pre_defined_reference[self.chap_header]]):
+            logger.info(f"使用预设的文献综述关系{pre_defined_reference[self.chap_header]}")
+            self.set_references(list(filter(lambda x:x.name in pre_defined_reference[self.chap_header],briefings_path)))
+        else:
+            briefings=self.load_references(briefings_path)
+            res = yield from (
+                request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency(
+                    handle_token_exceed=False,
+                    llm_kwargs=self._llm_kwargs,
+                    chatbot=self._chatbot,
+                    inputs_array=[self.relation_asm(briefing) for briefing in briefings],
+                    inputs_show_user_array=[briefing.split("\n")[0] for briefing in briefings],
+                    history_array=[[]] * len(briefings),
+                    sys_prompt_array=[self._role] * len(briefings),
+                    max_workers=self.MAX_WORKER,
+                )
             )
-        )
-        self.set_references(self.check_pass(briefings_path, res[1::2]))
+            self.set_references(self.check_pass(briefings_path, res[1::2]))
         return self
 
     @classmethod
@@ -348,7 +354,7 @@ class ArticleMaker(GptAcademicPluginTemplate):
             yield from update_ui(chatbot=chatbot, history=history)
         yield from update_ui(chatbot=chatbot, history=[])
         ref_paths: List[Path] = list(root.rglob("*.txt"))
-
+        pre_defined_reference = json.loads((root / "citation_info.json").read_text("utf-8")) if (root / "citation_info.json").exists() else {}
 
         chapters = plugin_kwargs["outline"].split("\n\n")
         title = plugin_kwargs["title"]
@@ -359,7 +365,7 @@ class ArticleMaker(GptAcademicPluginTemplate):
         chap_outlines = [ChapterOutline(content, llm_kwargs, chatbot) for content in chapters]
 
         for parg in chap_outlines:
-            yield from parg.update_related_references(ref_paths)
+            yield from parg.update_related_references(ref_paths,pre_defined_reference)
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
         sleep(20)
@@ -381,11 +387,11 @@ def dump_ref_usage_manifest(chaps: List['ChapterOutline'], all_refs: List[Path],
     manifest = {}
 
     for chap in chaps:
-        manifest[chap.chap_header] = [p.stem for p in chap.references]
+        manifest[chap.chap_header] = [p.name for p in chap.references]
 
     # 添加未使用的引用
     unused_refs = cite_maker.remove_all_used_ref(chaps)
-    manifest["UNUSED"] = [p.stem for p in unused_refs.ref_path]
+    manifest["UNUSED"] = [p.name for p in unused_refs.ref_path]
 
     # 使用 tempfile 创建一个命名的临时文件
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False, suffix='.json') as temp_file:

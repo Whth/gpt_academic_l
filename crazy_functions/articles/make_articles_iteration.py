@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from time import sleep
 from typing import List, TypeAlias
@@ -109,6 +110,7 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
             yield from update_ui(chatbot=chatbot, history=history)
         yield from update_ui(chatbot=chatbot, history=[])
         ref_paths: List[Path] = list(root.rglob("*.txt"))
+        pre_defined_reference = json.loads((root / "citation_info.json").read_text("utf-8")) if (root / "citation_info.json").exists() else {}
 
 
         chapters = plugin_kwargs["outline"].split("\n\n")
@@ -119,7 +121,7 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
         chap_outlines = [ChapterOutline(content, llm_kwargs, chatbot) for content in chapters]
 
         for parg in chap_outlines:
-            yield from parg.update_related_references(ref_paths)
+            yield from parg.update_related_references(ref_paths,pre_defined_reference)
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
         sleep(20)
