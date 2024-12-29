@@ -59,5 +59,7 @@ gradio = { url = "https://public.agent-matrix.com/publish/gradio-3.32.10-py3-non
 
 
 
-
+[[tool.uv.index]]
+url = "https://mirrors.bfsu.edu.cn/pypi/web/simple"
+default = true
 
