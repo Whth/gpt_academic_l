@@ -1,25 +1,52 @@
-name: Auto Release on Version Change
+name: Auto Version Bump and Release
 
 on:
   push:
-    branches:
-      - master
     tags:
       - '*.*.*'
 
 jobs:
-  release:
+  bump_version_and_release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 确保所有历史记录都被拉取
 
-      - name: Fetch all tags
-        run: git fetch --tags
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: '3.x'  # 使用Python 3
 
-      - name: Get latest tag
-        id: get_latest_tag
-        run: echo "LATEST_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel semver
+
+      - name: Bump version in JSON file
+        id: bump_version
+        run: |
+          import json
+          from semver import VersionInfo
+          with open('version', 'r') as f:
+              data = json.load(f)
+              current_version = data.get("version", "0.0.0")
+              new_version = str(VersionInfo.parse(current_version).bump_patch())
+              data["version"] = new_version
+          with open('version', 'w') as f:
+              json.dump(data, f, indent=2)
+          print(f"::set-output name=new_version::{new_version}")
+        shell: python
+
+      - name: Commit bumped version
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add version
+          git commit -m "chore(version): bump version to ${{ steps.bump_version.outputs.new_version }}"
+          git push
 
       - name: Make Compressed Release
         run: |
@@ -31,14 +58,14 @@ jobs:
           rm -rf .github
           rm -rf ci
           rm -rf tests
-          zip -r ${{ github.workspace }}/gpt-a-l-v${{ env.LATEST_TAG }}.zip .
+          zip -r ${{ github.workspace }}/gpt-a-l-v${{ steps.bump_version.outputs.new_version }}.zip .
         shell: bash
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2.1.0
         with:
-          tag_name: ${{ env.LATEST_TAG }}
-          files: ${{ github.workspace }}/gpt-a-l-v${{ env.LATEST_TAG }}.zip
+          tag_name: ${{ steps.bump_version.outputs.new_version }}
+          files: ${{ github.workspace }}/gpt-a-l-v${{ steps.bump_version.outputs.new_version }}.zip
           draft: false
           fail_on_unmatched_files: true
           generate_release_notes: true
