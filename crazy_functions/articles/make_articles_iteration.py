@@ -77,7 +77,7 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
             "iter_group_size": ArgProperty(
                 title="iter_group_size",
                 description="the number of references to be used in a iter",
-                default_value=int(4).__str__(),
+                default_value=int(7).__str__(),
                 type="string",
             ).model_dump_json(),
         }
