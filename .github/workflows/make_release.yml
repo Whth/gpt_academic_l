@@ -1,4 +1,4 @@
-name: Auto Version Bump and Release
+name: Auto Release
 
 on:
   push:
@@ -12,6 +12,12 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Get latest tag
+        id: get_latest_tag
+        run: echo "LATEST_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
 
       - name: Make Compressed Release
         run: |
