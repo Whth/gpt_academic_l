@@ -80,6 +80,12 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
                 default_value=int(7).__str__(),
                 type="string",
             ).model_dump_json(),
+            "relativity_threshold": ArgProperty(
+                title="relativity_threshold",
+                description="the threshold of relativity[0,100]",
+                default_value=int(88).__str__(),
+                type="string",
+            ).model_dump_json(),
         }
         return gui_definition
 
@@ -124,7 +130,8 @@ class ArticleMakerIter(GptAcademicPluginTemplate):
         chap_outlines = [ChapterOutline(content, llm_kwargs, chatbot) for content in chapters]
 
         for parg in chap_outlines:
-            yield from parg.update_related_references(ref_paths,pre_defined_reference)
+            yield from parg.update_related_references(ref_paths,pre_defined_reference
+                                                      ,relativity_threshold=int(plugin_kwargs["relativity_threshold"]))
             logger.info(f"已经处理完{parg.chap_header}的文献综述, 使用了{len(parg.references)}篇文献")
         dump_materials(chap_outlines, chatbot, root)
         dump_ref_usage_manifest(chap_outlines, ref_paths, chatbot)

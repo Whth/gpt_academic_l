@@ -179,7 +179,7 @@ class ChapterOutline:
         grouped_ref_materials = [self.references[i:i + group_size] for i in
                                  range(0, len(self.references), group_size)]
         return grouped_ref_materials
-    def update_related_references(self, briefings_path: List[Path],pre_defined_reference:Dict[str,List[str]]=None)->Self:
+    def update_related_references(self, briefings_path: List[Path],pre_defined_reference:Dict[str,List[str]]=None,relativity_threshold:int=88)->Self:
         """
         用于处理文献综述与提纲关系的 ASM 任务
         """
@@ -197,7 +197,7 @@ class ChapterOutline:
                     handle_token_exceed=False,
                     llm_kwargs=self._llm_kwargs,
                     chatbot=self._chatbot,
-                    inputs_array=[self.relation_asm(briefing) for briefing in briefings],
+                    inputs_array=[self.relation_asm(briefing,threshold=relativity_threshold) for briefing in briefings],
                     inputs_show_user_array=[briefing.split("\n")[0] for briefing in briefings],
                     history_array=[[]] * len(briefings),
                     sys_prompt_array=[self._role] * len(briefings),
