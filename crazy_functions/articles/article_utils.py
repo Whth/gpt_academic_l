@@ -134,13 +134,12 @@ class ChapterOutline:
         instruction_template = (
             f"{asm_ref_material}\n\n"
             "任务说明：\n"
-            f"论文题目：{self.TITLE}\n\n"
-            f"论文的部分提纲：\n{self.content}\n\n"
             f"已完成部分：\n{written_article_place_holder}\n\n"
-            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将{len(grouped)}篇参考文献综述增量式插入到章节中。\n"
+            f"论文的部分提纲：\n{self.content}\n\n"
+            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将{len(grouped)}篇参考文献综述作为引文插入到章节中。\n"
             "要求：\n"
             "- 不得遗漏任何文献，保持原有引用完整性。\n"
-            "- 章节编号严格依照提纲，不得私自增减章节或者子章节。\n"
+            "- 章节编号严格依照提纲，不得私自增减章节或者子章节。如果发现我给出的已完成部分里面有不在我给出的提纲存在的章节你需要把它们给删除掉\n"
             "- 行文流畅，逻辑严谨，丰富并完善章节内容。\n"
             "- 引用格式：根据作者数量正确使用引文格式，引用文献时，使用实际作者姓氏及年份，遵循学术引用规范。"
             "例如，“作者1，作者2，作者3等人（2013）”，"
@@ -231,21 +230,63 @@ class ChapterOutline:
                 zip(refs, responses),
             ))
         )
-
     @staticmethod
-    def get_incited(refs: List[Path], response:str) -> List[Path]:
+    def get_incited(refs: List[Path], response: str, max_distance: int = 60) -> List[Path]:
         """
-        检查文献综述与提纲关系的 ASM 任务的回答是否符合要求
+        Identifies references that are incorrectly cited in a given response text.
+
+        This function searches for references that are potentially incorrectly cited based on the distance between
+        the authors' names and the year in the response text. If the year appears too far from the authors' names
+        or in an incorrect order, the reference is considered incorrectly cited.
+
+        Parameters:
+        refs (List[Path]): A list of file paths for the references.
+        response (str): The response text in which to search for citations.
+        max_distance (int): The maximum allowed distance between the authors' names and the year for a citation to be considered correct.
+
+        Returns:
+        List[Path]: A list of file paths for references that are incorrectly cited.
         """
 
+        # Initialize a list to store the file name segmentation results
+        f_segs: List[FileNameSegmentation] = [FileNameSegmentation(p) for p in refs]  # File name segmentation
 
-        f_segs:List[FileNameSegmentation]=[FileNameSegmentation(p) for p in refs] # 文件名分割
-        incited_segs=filter(lambda x:x.authors.split(" ")[0] not in response,f_segs) # 未被引用的文献
-        cited_segs=filter(lambda x:x.authors.split(" ")[0] in response,f_segs) # 被引用的文献
-        cited_incorrectly=filter(lambda x:x.year not in response or # 作者年份不在回答中
-                          abs(response.index(x.authors.split(" ")[0])-response.index(x.year))>60, # 作者年份在回答中，但是位置不对
-                 cited_segs)
-        return [f.source for f in chain(incited_segs,cited_incorrectly)]
+        # Initialize a set to store references that are incorrectly cited
+        cited_incorrectly = set()
+
+        # Iterate through each segmented file name
+        for seg in f_segs:
+            start_index = 0
+            found = False
+            while True:
+                # Find the position of the authors' names and year in the response text starting from the current search position
+                author_index = response.find(seg.authors_first_segment, start_index)
+                year_index = response.find(seg.year, start_index)
+
+                # If the authors' names are not found and a citation has been found before, it is considered a legal citation
+                if author_index == -1 and found:
+                    break
+                # If the authors' names are found but the year is not, it is considered an incorrect citation
+                elif year_index == -1:
+                    cited_incorrectly.add(seg)
+                    break
+
+                # Calculate the distance between the authors' names and the year
+                distance = year_index - author_index
+
+                # If the year appears before the authors' names or the distance exceeds the maximum, it is considered an incorrect citation
+                if distance < 0 or distance > max_distance:
+                    cited_incorrectly.add(seg)
+                    break
+
+                # If the year appears after the authors' names and within the allowed distance, update the search position and continue searching
+                found = True
+                start_index = year_index + len(seg.year)
+
+        # Return the list of file paths for references that are incorrectly cited
+        return [f.source for f in cited_incorrectly]
+
+
 
 
 class ContentPacker:
@@ -444,6 +485,12 @@ class FileNameSegmentation:
         :return: 作者
         """
         return self._authers
+    @property
+    def authors_first_segment(self):
+        """
+        :return: 作者的姓
+        """
+        return self._authers.split(" ")[0]
     @property
     def year(self):
         """
