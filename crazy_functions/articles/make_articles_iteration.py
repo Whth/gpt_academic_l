@@ -179,7 +179,7 @@ def ensure_all_cited(chap_outline:ChapterOutline,written:str,ref_paths:List[Path
         lap_count+=1
         written=yield from request_gpt_model_in_new_thread_with_ui_alive(
             inputs=unused,
-            inputs_show_user=f"补全缺失的引用，{chap_outline.chap_header}开始第[{lap_count}]轮迭代",
+            inputs_show_user=f"补全缺失的引用，{chap_outline.chap_header}开始第[{lap_count}]轮迭代, 请求负载大小: {len(unused.replace(written,''))}，如果请求负载大小每轮迭代都在减小，说明输出正在收敛。",
             history=[],
             sys_prompt="You are an expert about how to insert the reference into the article appropriately without damaging the original content.",
             chatbot=chatbot,
