@@ -5,18 +5,17 @@ on:
       - '*.*.*'
 
 jobs:
-  format-code:
+  update_version:
     runs-on: ubuntu-latest
 
     permissions:
-      # Give the default GITHUB_TOKEN write permission to commit and push the
-      # added or changed files to the repository.
       contents: write
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          fetch-depth: 0  # Ensure that all tags are fetched
+
       - name: Set up Python
         uses: actions/setup-python@v5.3.0
 
@@ -25,23 +24,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install semver
 
-      - name: Bump version in JSON file
-        id: bump_version
+      - name: Get the tag version
+        id: get_tag_version
+        run: echo "tag_version=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Update version in JSON file to match tag
+        id: update_version
         run: |
           import json
           from semver import VersionInfo
+          tag_version = "${{ env.tag_version }}"
+          try:
+              new_version = str(VersionInfo.parse(tag_version))
+          except ValueError:
+              new_version = "0.0.0"  # Fallback version if tag is not a valid semver
+          
           with open('version', 'r') as f:
               data = json.load(f)
-              current_version = data.get("version", "0.0.0")
-              new_version = str(VersionInfo.parse(current_version).bump_patch())
-              data["version"] = new_version
+          
+          data["version"] = new_version
+          
           with open('version', 'w') as f:
               json.dump(data, f, indent=2)
+          
           print(f"::set-output name=new_version::{new_version}")
         shell: python
 
-      # Commit all changed files back to the repository
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Bump version to ${{ steps.bump_version.outputs.new_version }}"
+          commit_message: "Bump version to ${{ steps.update_version.outputs.new_version }}"
           branch: master
