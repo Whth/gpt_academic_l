@@ -161,7 +161,7 @@ def write_article_iter(chap_outlines:List[ChapterOutline], chatbot, llm_kwargs,g
                 llm_kwargs=llm_kwargs,
             )
 
-            last_written=ensure_all_cited(chap,unchecked_last_written,
+            last_written=yield from ensure_all_cited(chap,unchecked_last_written,
                                           list(chain(*grouped_paths[:i+1])),
                                           chatbot,llm_kwargs,)
 
