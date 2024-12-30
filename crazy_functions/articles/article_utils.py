@@ -72,7 +72,7 @@ class ChapterOutline:
         读取文献综述的内容
         """
         return self.load_references(self.references)
-    def relation_asm(self, briefing: Briefing, threshold:int=75) -> str:
+    def relation_asm(self, briefing: Briefing, threshold:int=88) -> str:
         """
         生成用于评估文献综述与论文提纲相关性的 ASM 任务。
         """
@@ -85,10 +85,10 @@ class ChapterOutline:
     
             f"论文提纲:\n{self.content}\n\n"
     
-            f"如果综述与提纲高度相关（{threshold}%以上重合），回复关键字“{self.AFFIRMATIVE}”。\n"
-            f"如果综述与提纲关联度低（{threshold}%以下重合），回复关键字“{self.REJECT}”。\n"
+            f"如果综述与提纲高度相关（有{threshold}%以上的重合度），可以作为引文插入到提纲内的章节里面，回复关键字“{self.AFFIRMATIVE}”。\n"
+            f"如果综述与提纲关联度低（有{threshold}%以下的重合度），可以作为引文插入到提纲内的章节里面，但是会非常的奇怪并且没有逻辑联系，回复关键字“{self.REJECT}”。\n"
     
-            f"仅回复上述两个关键字之一，任何额外解释均视为无效输入。"
+            f"你仅需要回复上述【{self.AFFIRMATIVE}/{self.REJECT}】两个中关键字之一，不要带任何其他的说明，你给出的任何额外解释或者理由与原因均会被视为无效输入。"
         )
 
     def write_batch_asm(self) -> str:
@@ -134,19 +134,23 @@ class ChapterOutline:
         instruction_template = (
             f"{asm_ref_material}\n\n"
             "任务说明：\n"
-            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将{len(grouped)}篇参考文献综述增量式插入到章节中。\n"
-            "要求：\n"
-            "- 不得遗漏任何文献，保持原有引用完整性。\n"
-            "- 章节编号严格依照提纲，不得增减。\n"
-            "- 行文流畅，逻辑严谨，丰富并完善章节内容。\n"
-            "- 引用格式：根据作者数量正确使用引文格式，如“作者1，作者2，作者3等人（年份）”。\n"
-            "- 可引用图表辅助说明，但仅限于字符描述其位置，不实际插入。\n"
-            "- 输出为纯文本，遵循指定的标题序号规范。\n"
-            "- 无需开头问候或结尾总结。\n\n"
             f"论文题目：{self.TITLE}\n\n"
             f"论文的部分提纲：\n{self.content}\n\n"
             f"已完成部分：\n{written_article_place_holder}\n\n"
-            "请按照上述要求完成剩余部分的撰写。"
+            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将{len(grouped)}篇参考文献综述增量式插入到章节中。\n"
+            "要求：\n"
+            "- 不得遗漏任何文献，保持原有引用完整性。\n"
+            "- 章节编号严格依照提纲，不得私自增减章节或者子章节。\n"
+            "- 行文流畅，逻辑严谨，丰富并完善章节内容。\n"
+            "- 引用格式：根据作者数量正确使用引文格式，引用文献时，使用实际作者姓氏及年份，遵循学术引用规范。"
+            "例如，“作者1，作者2，作者3等人（2013）”，"
+            "对于两位作者：“作者1与作者2（2013）”，"
+            "单个作者：“作者1（2013）”。"
+            "多篇文献引用时，如“作者1（2019），作者2（2024）”。\n"
+            "- 可引用图表辅助说明，但仅限于字符描述其位置，不实际插入，多媒体文件插入由我完成。\n"
+            "- 输出为纯文本，不使用Markdown语法或其他标记语言，标题序号遵循x x.y x.y.z格式。\n"
+            "- 无需开头问候或结尾总结。\n\n"
+            "请按照上述要求完成论文章节的撰写。"
         )
 
         return instruction_template
