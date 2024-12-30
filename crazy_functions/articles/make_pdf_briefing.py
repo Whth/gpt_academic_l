@@ -1,12 +1,9 @@
-import tempfile
-import zipfile
 from pathlib import Path
 from typing import List
-from typing import Self
 
 from loguru import logger
 
-from crazy_functions.articles.make_articles import remove_markdown_syntax
+from crazy_functions.articles.article_utils import remove_markdown_syntax, ContentPacker, FileNameSegmentation
 from crazy_functions.crazy_utils import input_clipping
 from crazy_functions.crazy_utils import read_and_clean_pdf_text
 from crazy_functions.crazy_utils import request_gpt_model_in_new_thread_with_ui_alive
@@ -19,62 +16,8 @@ from toolbox import promote_file_to_downloadzone
 from toolbox import update_ui
 
 
-class ContentPacker:
-    """
-    用于将多个文本内容打包为一个ZIP文件的工具类
-    """
-
-    def __init__(self):
-        # 创建一个临时目录
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.files: List[Path] = []
-
-    def add_content(self, title: str, content: str) -> Self:
-        """添加带有标题的文本内容到临时目录中，并返回自身以便链式调用"""
-        file_path = Path(self.temp_dir.name) / f"{title}.txt"
-        with open(file_path, "w", encoding="utf-8") as file:
-            file.write(content)
-        self.files.append(file_path)
-        return self  # 返回自身以支持链式调用
-
-    def pack(self, output_path: str) -> Self:
-        """将所有添加的内容打包为ZIP文件，并输出到指定路径"""
-        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for file in self.files:
-                # 将文件添加到ZIP文件中，保持原始文件名
-                zipf.write(file, arcname=file.name)
-        print(f"ZIP文件已创建: {output_path}")
-        return self
-
-    def cleanup(self) -> None:
-        """清理临时目录"""
-        self.temp_dir.cleanup()
-
-
 # 使用示例
 
-
-class FileNameSegmetation:
-
-    def __init__(self,f_path:Path):
-        self._f_name = f_path.stem
-        segs=self._f_name.split(" - ")
-        self._authers=segs[0].replace(" et al.","等人")
-        self._year=segs[1]
-        self._title=segs[2]
-
-    @property
-    def f_name(self):
-        return self._f_name
-    @property
-    def authers(self):
-        return self._authers
-    @property
-    def year(self):
-        return self._year
-    @property
-    def title(self):
-        return self._title
 
 def make_brifing_inner(
     file_manifest: List[Path],
@@ -132,7 +75,7 @@ def make_brifing_inner(
         if n_fragment>1:
             logger.info(f"the paper is long, divided into {n_fragment} fragments. Start info pre-extraction.")
             yield from seg_sum(chatbot, iteration_results, last_iteration_result, llm_kwargs, max_word_total, n_fragment,
-                           paper_fragments)
+                               paper_fragments)
         else:
             logger.info(f"the paper is short, only one fragment. Skip info pre-extraction.")
             iteration_results.append(paper_fragments[0])
@@ -140,11 +83,11 @@ def make_brifing_inner(
         final_results.extend(iteration_results)
         final_results.append(f"")
         
-        f_segs=FileNameSegmetation(file_path)
+        f_segs= FileNameSegmentation(file_path)
         
         field_string = f'我正在撰写一篇关于"{title}"的文献综述论文。' if title else ""
         i_say = f"""
-根据上面这篇由{f_segs.authers}在{f_segs.year}年发表的标题为“{f_segs.title}”的论文，为我完成内容提取，具体的格式要求如下：
+根据上面这篇由{f_segs.authors}在{f_segs.year}年发表的标题为“{f_segs.title}”的论文，为我完成内容提取，具体的格式要求如下：
 {field_string}这个是对于一篇论文所对应综述内容的格式要求：
 
 {format_constrain}
@@ -179,31 +122,6 @@ def make_brifing_inner(
 
     packer.cleanup()
     return out_path
-
-
-def seg_sum(chatbot, iteration_results, last_iteration_result, llm_kwargs, max_word_total, n_fragment, paper_fragments):
-    for i in range(n_fragment):
-        NUM_OF_WORD = max_word_total // n_fragment
-        i_say = (
-            f"Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i]},"
-            f" DO NOT transcribe the equations or formulas directly, but describe their mechanism and function in Chinese."
-            f" DO remember mention the charts' or tables' serial numbers and names in the way the were in the original text, they are high value info, you should add them all to the final result"
-            f" DO NOT try to recapitulate the references, they are not the main content of the paper, so they are useless here."
-            f" DO NOTICE the name of entity should always be annotated with academic name, like 'Deep Learning' instead of 'DL'.")
-        i_say_show_user = f"[{i + 1}/{n_fragment}] Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i][:200]}"
-        gpt_say = yield from request_gpt_model_in_new_thread_with_ui_alive(
-            i_say,
-            i_say_show_user,  # i_say=真正给chatgpt的提问， i_say_show_user=给用户看的提问
-            llm_kwargs,
-            chatbot,
-            history=[
-                "The main idea of the previous section is?",
-                last_iteration_result,
-            ],  # 迭代上一次的结果
-            sys_prompt="Extract the main idea of this section with Chinese.YOU SHALL NOT Translate author's name",  # 提示
-        )
-        iteration_results.append(gpt_say)
-        last_iteration_result = gpt_say
 
 
 @CatchException
@@ -367,3 +285,28 @@ class BriefingMaker(GptAcademicPluginTemplate):
                 user_request,
             )
         )
+
+
+def seg_sum(chatbot, iteration_results, last_iteration_result, llm_kwargs, max_word_total, n_fragment, paper_fragments):
+    for i in range(n_fragment):
+        NUM_OF_WORD = max_word_total // n_fragment
+        i_say = (
+            f"Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i]},"
+            f" DO NOT transcribe the equations or formulas directly, but describe their mechanism and function in Chinese."
+            f" DO remember mention the charts' or tables' serial numbers and names in the way the were in the original text, they are high value info, you should add them all to the final result"
+            f" DO NOT try to recapitulate the references, they are not the main content of the paper, so they are useless here."
+            f" DO NOTICE the name of entity should always be annotated with academic name, like 'Deep Learning' instead of 'DL'.")
+        i_say_show_user = f"[{i + 1}/{n_fragment}] Read this section, recapitulate the content of this section with less than {NUM_OF_WORD} Chinese characters: {paper_fragments[i][:200]}"
+        gpt_say = yield from request_gpt_model_in_new_thread_with_ui_alive(
+            i_say,
+            i_say_show_user,  # i_say=真正给chatgpt的提问， i_say_show_user=给用户看的提问
+            llm_kwargs,
+            chatbot,
+            history=[
+                "The main idea of the previous section is?",
+                last_iteration_result,
+            ],  # 迭代上一次的结果
+            sys_prompt="Extract the main idea of this section with Chinese.YOU SHALL NOT Translate author's name",  # 提示
+        )
+        iteration_results.append(gpt_say)
+        last_iteration_result = gpt_say

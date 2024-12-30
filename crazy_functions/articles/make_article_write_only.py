@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 
-from crazy_functions.articles.make_articles import ChapterOutline, dump_final_result
+from crazy_functions.articles.article_utils import ChapterOutline, dump_final_result
 from crazy_functions.crazy_utils import request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency
 from crazy_functions.plugin_template.plugin_class_template import (
     GptAcademicPluginTemplate,

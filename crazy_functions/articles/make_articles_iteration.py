@@ -4,8 +4,8 @@ from typing import List, TypeAlias
 
 from loguru import logger
 
-from crazy_functions.articles.make_articles import ChapterOutline, dump_materials, dump_final_result, \
-    dump_ref_usage_manifest, remove_markdown_syntax
+from crazy_functions.articles.article_utils import ChapterOutline, dump_ref_usage_manifest, dump_final_result, \
+    dump_materials, remove_markdown_syntax
 from crazy_functions.crazy_utils import request_gpt_model_in_new_thread_with_ui_alive
 from crazy_functions.plugin_template.plugin_class_template import (
     GptAcademicPluginTemplate,
