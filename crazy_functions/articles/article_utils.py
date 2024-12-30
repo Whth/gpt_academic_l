@@ -1,7 +1,6 @@
 import json
 import tempfile
 import zipfile
-from itertools import chain
 from pathlib import Path
 from typing import TypeAlias, List, Self, Dict, Optional
 
@@ -264,18 +263,21 @@ class ChapterOutline:
                 year_index = response.find(seg.year, start_index)
 
                 # If the authors' names are not found and a citation has been found before, it is considered a legal citation
-                if author_index == -1 and found:
-                    break
-                # If the authors' names are found but the year is not, it is considered an incorrect citation
-                elif year_index == -1:
-                    cited_incorrectly.add(seg)
+                if found and author_index == -1:
                     break
 
+                # If the authors' names are found but the year is not, it is considered an incorrect citation
+                elif year_index == -1 or author_index == -1:
+                    logger.debug(f"{seg.authors}|未找到年份或者作者|年份：{seg.year} at {year_index}|作者：{seg.authors_first_segment} at {author_index}")
+                    cited_incorrectly.add(seg)
+                    break
+                logger.debug(f"{seg.authors}|作者位置: {author_index}, 年份位置: {year_index}")
                 # Calculate the distance between the authors' names and the year
                 distance = year_index - author_index
 
                 # If the year appears before the authors' names or the distance exceeds the maximum, it is considered an incorrect citation
                 if distance < 0 or distance > max_distance:
+                    logger.debug(f"{seg.authors}|距离太远: {distance}")
                     cited_incorrectly.add(seg)
                     break
 
@@ -283,6 +285,7 @@ class ChapterOutline:
                 found = True
                 start_index = year_index + len(seg.year)
 
+        logger.info(f"未找到的引用数量: {len(cited_incorrectly)}")
         # Return the list of file paths for references that are incorrectly cited
         return [f.source for f in cited_incorrectly]
 
@@ -460,7 +463,7 @@ class FileNameSegmentation:
     def __init__(self,f_path:Path):
         self._f_name = f_path.stem
         segs=self._f_name.split(" - ")
-        self._authers=segs[0].replace(" et al.","等人")
+        self._authors=segs[0].replace("et al.", "等人")
         self._year=segs[1]
         self._title=segs[2]
 
@@ -484,13 +487,13 @@ class FileNameSegmentation:
         """
         :return: 作者
         """
-        return self._authers
+        return self._authors
     @property
     def authors_first_segment(self):
         """
         :return: 作者的姓
         """
-        return self._authers.split(" ")[0]
+        return self._authors.split(" ")[0]
     @property
     def year(self):
         """
