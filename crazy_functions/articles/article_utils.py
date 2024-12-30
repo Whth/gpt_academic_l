@@ -485,8 +485,9 @@ def fix_incorrect_year(refs:List[Path],response:str,max_fix_range:int=60)->Writt
             if distance > max_fix_range:
                 logger.debug(f"{seg.authors}|距离太远: {distance}")
                 break
-            logger.info(f'{seg.authors}|修正年份:  {response[year_start:year_end]} -> {seg.year}')
-            response=response[:year_start]+seg.year+response[year_end:]
+            if response[year_start:year_end] != seg.year:
+                logger.info(f'{seg.authors}|修正年份:  {response[year_start:year_end]} -> {seg.year}')
+                response=response[:year_start]+seg.year+response[year_end:]
             start_index=year_end
 
     return response

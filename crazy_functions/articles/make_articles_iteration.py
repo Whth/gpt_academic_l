@@ -186,7 +186,13 @@ def ensure_all_cited(chap_outline:ChapterOutline,written:str,ref_paths:List[Path
     确保所有引用的文献都被引用到
     """
     lap_count=0
-    while lap_count<max_lap and  (unused:=chap_outline.write_iter_unused_asm(written,ref_paths) ) :
+    last_unused_count=-1
+    last_written=written
+    while lap_count<max_lap and  (unused:=chap_outline.write_iter_unused_asm(written,ref_paths) ):
+        if last_unused_count!=-1 and len(unused)>=last_unused_count:
+            logger.info(f"迭代{lap_count}时，未引用文献数量未发生变化，提前结束")
+            written=last_written
+            break
         lap_count+=1
         written=yield from request_gpt_model_in_new_thread_with_ui_alive(
             inputs=unused,
@@ -196,6 +202,8 @@ def ensure_all_cited(chap_outline:ChapterOutline,written:str,ref_paths:List[Path
             chatbot=chatbot,
             llm_kwargs=llm_kwargs,
         )
+        last_unused_count=len(unused)
+        last_written=written
 
 
     return written
