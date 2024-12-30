@@ -1,8 +1,10 @@
 import json
 import tempfile
 import zipfile
+from itertools import chain
+from operator import index
 from pathlib import Path
-from typing import TypeAlias, List, Self, Dict
+from typing import TypeAlias, List, Self, Dict, Optional
 
 from loguru import logger
 
@@ -65,6 +67,7 @@ class ChapterOutline:
         读取文献综述的内容
         """
         return [p.read_text("utf-8") for p in ref_paths]
+
     def load_self_references(self)->List[Briefing]:
         """
         读取文献综述的内容
@@ -113,10 +116,12 @@ class ChapterOutline:
 
 
 
-    def _write_iter_asm_inner(self,grouped:List[Briefing],written_article_place_holder:str)->str:
+    def _write_iter_asm_inner(self,grouped:List[Path],written_article_place_holder:str)->str:
         """
         生成用于增量撰写文章内容的 ASM 任务
         """
+        grouped = self.load_references(grouped)
+
         asm_ref_material: str = "\n\n".join([f"[{i}]: {ref_material}" for i, ref_material in enumerate(grouped)])
         return (
             f"{asm_ref_material}"
@@ -139,14 +144,29 @@ class ChapterOutline:
         )
 
 
-    def write_iter_asm(self,per_iter_size:int=4,written_article_place_holder:str="__written__") -> List[str]:
+    def write_iter_asm(self, grouped_paths:List[List[Path]], written_article_place_holder:str= "__written__") -> List[str]:
         """
         生成用于增量撰写文章内容的 ASM 任务
         """
-        ref_materials:List[Briefing] = self.load_self_references()
-        grouped_ref_materials = [ref_materials[i:i + per_iter_size] for i in range(0, len(ref_materials), per_iter_size)]
-        return [self._write_iter_asm_inner(grouped,written_article_place_holder) for grouped in grouped_ref_materials]
 
+        return [self._write_iter_asm_inner(grouped,written_article_place_holder)
+                for grouped in grouped_paths]
+
+    def content_group_by(self, group_size:int=4)->List[List[Briefing]]:
+        """
+        将文献综述分组
+        """
+        ref_materials: List[Briefing] = self.load_self_references()
+        grouped_ref_materials = [ref_materials[i:i + group_size] for i in
+                                 range(0, len(ref_materials), group_size)]
+        return grouped_ref_materials
+    def path_group_by(self, group_size:int=4)->List[List[Path]]:
+        """
+        将文献综述分组
+        """
+        grouped_ref_materials = [self.references[i:i + group_size] for i in
+                                 range(0, len(self.references), group_size)]
+        return grouped_ref_materials
     def update_related_references(self, briefings_path: List[Path],pre_defined_reference:Dict[str,List[str]]=None)->Self:
         """
         用于处理文献综述与提纲关系的 ASM 任务
@@ -175,6 +195,16 @@ class ChapterOutline:
             self.set_references(self.check_pass(briefings_path, res[1::2]))
         return self
 
+
+    def write_iter_unused_asm(self,written,ref_materials:List[Path],) -> Optional[str]:
+        """
+        构造未使用的文献综述的 ASM 任务
+        """
+        unused=self.get_incited(ref_materials, written)
+        if not unused:
+            return None
+        written_article_place_holder:str="__written__"
+        return self._write_iter_asm_inner(unused,written_article_place_holder).replace(written_article_place_holder,written)
     @classmethod
     def check_pass(cls, refs: List[Path], responses: List[str]) -> List[Path]:
         """
@@ -191,14 +221,19 @@ class ChapterOutline:
         )
 
     @staticmethod
-    def get_unused(refs: List[Path],response:str) -> List[Path]:
+    def get_incited(refs: List[Path], response:str) -> List[Path]:
         """
         检查文献综述与提纲关系的 ASM 任务的回答是否符合要求
         """
 
-        f_segs:List[FileNameSegmentation]=[FileNameSegmentation(p) for p in refs]
-        filtered_segs=filter(lambda x:x.f_name.authors.split(" ")[0] in response,f_segs)
-        return [f.source for f in filtered_segs]
+
+        f_segs:List[FileNameSegmentation]=[FileNameSegmentation(p) for p in refs] # 文件名分割
+        incited_segs=filter(lambda x:x.f_name.authors.split(" ")[0] not in response,f_segs) # 未被引用的文献
+        cited_segs=filter(lambda x:x.f_name.authors.split(" ")[0] in response,f_segs) # 被引用的文献
+        cited_incorrectly=filter(lambda x:x.year not in response or # 作者年份不在回答中
+                          abs(index(x.f_name.authors.split(" ")[0])-index(x.year))>60, # 作者年份在回答中，但是位置不对
+                 cited_segs)
+        return [f.source for f in chain(incited_segs,cited_incorrectly)]
 
 
 class ContentPacker:

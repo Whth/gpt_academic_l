@@ -1,4 +1,5 @@
 import json
+from itertools import chain
 from pathlib import Path
 from typing import List, TypeAlias
 
@@ -145,18 +146,45 @@ def write_article_iter(chap_outlines:List[ChapterOutline], chatbot, llm_kwargs,g
     place_holder="$placebo$"
     out:List[str]=[]
     for chap in chap_outlines:
-        materials:List[str]=chap.write_iter_asm(group_size,place_holder)
-        logger.info(f"已经生成{chap.chap_header}的文章内容, 使用了{len(chap.references)}篇文献，迭代{len(materials)}趟")
+        grouped_paths=chap.path_group_by(group_size)
+        materials:List[str]=chap.write_iter_asm(grouped_paths,place_holder)
+        logger.info(f"开始生成{chap.chap_header}的文章内容, 使用了{len(chap.references)}篇文献，迭代{len(materials)}趟")
         last_written=chap.content
         for i,material in enumerate(materials):
 
-            last_written=yield from request_gpt_model_in_new_thread_with_ui_alive(
+            unchecked_last_written:str=yield from request_gpt_model_in_new_thread_with_ui_alive(
                 inputs=material.replace(place_holder,last_written),
-                inputs_show_user=f"开始第[{i+1}/{len(materials)}]轮迭代",
+                inputs_show_user=f"{chap.chap_header}开始第[{i+1}/{len(materials)}]轮迭代",
                 history=[],
-                sys_prompt="You are expert about how to insert the reference into the article appropriately without damaging the original content",
+                sys_prompt="You are an expert about how to insert the reference into the article appropriately without damaging the original content.",
                 chatbot=chatbot,
                 llm_kwargs=llm_kwargs,
             )
+
+            last_written=ensure_all_cited(chap,unchecked_last_written,
+                                          list(chain(*grouped_paths[:i+1])),
+                                          chatbot,llm_kwargs,)
+
+
         out.append(remove_markdown_syntax(last_written))
     return out
+
+
+def ensure_all_cited(chap_outline:ChapterOutline,written:str,ref_paths:List[Path],chatbot,llm_kwargs)->str:
+    """
+    确保所有引用的文献都被引用到
+    """
+    lap_count=0
+    while unused:=chap_outline.write_iter_unused_asm(written,ref_paths):
+        lap_count+=1
+        written=yield from request_gpt_model_in_new_thread_with_ui_alive(
+            inputs=unused,
+            inputs_show_user=f"补全缺失的引用，{chap_outline.chap_header}开始第[{lap_count+1}]轮迭代",
+            history=[],
+            sys_prompt="You are an expert about how to insert the reference into the article appropriately without damaging the original content.",
+            chatbot=chatbot,
+            llm_kwargs=llm_kwargs,
+        )
+
+
+    return written
