@@ -6,7 +6,7 @@ on:
       - '*.*.*'
 
 jobs:
-  bump_version_and_release:
+  make_release:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,14 +23,14 @@ jobs:
           rm -rf .github
           rm -rf ci
           rm -rf tests
-          zip -r ${{ github.workspace }}/gpt-a-l-v${{ steps.bump_version.outputs.new_version }}.zip .
+          zip -r ${{ github.workspace }}/gpt-a-l-v${{ env.LATEST_TAG }}.zip .
         shell: bash
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2.1.0
         with:
-          tag_name: ${{ steps.bump_version.outputs.new_version }}
-          files: ${{ github.workspace }}/gpt-a-l-v${{ steps.bump_version.outputs.new_version }}.zip
+          tag_name: ${{ env.LATEST_TAG }}
+          files: ${{ github.workspace }}/gpt-a-l-v${{ env.LATEST_TAG }}.zip
           draft: false
           fail_on_unmatched_files: true
           generate_release_notes: true
