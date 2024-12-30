@@ -256,7 +256,7 @@ class ChapterOutline:
 
         # Iterate through each segmented file name
         for seg in f_segs:
-            if len(seg.authors_first_segment)<3:
+            if len(seg.authors_first_segment)<=3:
                 logger.debug(f"{seg.authors}|作者名字太短,检测适用效果差，跳过")
                 continue
             start_index = 0
@@ -443,7 +443,7 @@ def write_article( chap_outlines, chatbot, llm_kwargs, max_write_threads)->List[
     return gpt_res
 
 
-def remove_markdown_syntax(content:str)->str:
+def remove_markdown_syntax(content:WrittenChap)->WrittenChap:
     """
     移除Markdown语法
     """
@@ -466,7 +466,7 @@ def fix_incorrect_year(refs:List[Path],response:str,max_fix_range:int=60)->Writt
     year_pat=re.compile(r"(\d{4})")
     f_segs: List[FileNameSegmentation] = [FileNameSegmentation(p) for p in refs]  # File name segmentation
     for seg in f_segs:
-        if len(seg.authors_first_segment)<3:
+        if len(seg.authors_first_segment)<=3:
             logger.debug(f"{seg.authors}|作者名字太短,检测适用效果差，跳过")
             continue
 
@@ -485,7 +485,7 @@ def fix_incorrect_year(refs:List[Path],response:str,max_fix_range:int=60)->Writt
             if distance > max_fix_range:
                 logger.debug(f"{seg.authors}|距离太远: {distance}")
                 break
-
+            logger.info(f'{seg.authors}|修正年份:  {response[year_start:year_end]} -> {seg.year}')
             response=response[:year_start]+seg.year+response[year_end:]
             start_index=year_end
 

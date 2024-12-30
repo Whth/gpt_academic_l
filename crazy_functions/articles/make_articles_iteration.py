@@ -181,12 +181,12 @@ def write_article_iter(chap_outlines:List[ChapterOutline], chatbot, llm_kwargs,g
     return out
 
 
-def ensure_all_cited(chap_outline:ChapterOutline,written:str,ref_paths:List[Path],chatbot,llm_kwargs)->str:
+def ensure_all_cited(chap_outline:ChapterOutline,written:str,ref_paths:List[Path],chatbot,llm_kwargs,max_lap:int=3)->str:
     """
     确保所有引用的文献都被引用到
     """
     lap_count=0
-    while unused:=chap_outline.write_iter_unused_asm(written,ref_paths):
+    while lap_count<max_lap and  (unused:=chap_outline.write_iter_unused_asm(written,ref_paths) ) :
         lap_count+=1
         written=yield from request_gpt_model_in_new_thread_with_ui_alive(
             inputs=unused,
