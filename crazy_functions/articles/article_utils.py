@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 import zipfile
 from pathlib import Path
@@ -255,28 +256,30 @@ class ChapterOutline:
 
         # Iterate through each segmented file name
         for seg in f_segs:
+            if len(seg.authors_first_segment)<3:
+                logger.debug(f"{seg.authors}|作者名字太短,检测适用效果差，跳过")
+                continue
             start_index = 0
             found = False
             while True:
                 # Find the position of the authors' names and year in the response text starting from the current search position
                 author_index = response.find(seg.authors_first_segment, start_index)
-                year_index = response.find(seg.year, start_index)
-
+                year_index=-1
                 # If the authors' names are not found and a citation has been found before, it is considered a legal citation
                 if found and author_index == -1:
                     break
 
                 # If the authors' names are found but the year is not, it is considered an incorrect citation
-                elif year_index == -1 or author_index == -1:
+                elif author_index == -1 or (year_index := response.find(seg.year, author_index)) == -1:
                     logger.debug(f"{seg.authors}|未找到年份或者作者|年份：{seg.year} at {year_index}|作者：{seg.authors_first_segment} at {author_index}")
                     cited_incorrectly.add(seg)
                     break
-                logger.debug(f"{seg.authors}|作者位置: {author_index}, 年份位置: {year_index}")
+                logger.debug(f"{seg.authors}|作者{seg.authors_first_segment}位置: {author_index}, 年份{seg.year}位置: {year_index}")
                 # Calculate the distance between the authors' names and the year
                 distance = year_index - author_index
 
                 # If the year appears before the authors' names or the distance exceeds the maximum, it is considered an incorrect citation
-                if distance < 0 or distance > max_distance:
+                if distance > max_distance:
                     logger.debug(f"{seg.authors}|距离太远: {distance}")
                     cited_incorrectly.add(seg)
                     break
@@ -288,6 +291,8 @@ class ChapterOutline:
         logger.info(f"未找到的引用数量: {len(cited_incorrectly)}")
         # Return the list of file paths for references that are incorrectly cited
         return [f.source for f in cited_incorrectly]
+
+
 
 
 
@@ -453,6 +458,39 @@ def remove_markdown_syntax(content:str)->str:
             .replace("#","")
             .replace("> ","")
             .replace("~~",""))
+
+def fix_incorrect_year(refs:List[Path],response:str,max_fix_range:int=60)->WrittenChap:
+    """
+    修正引用中的年份
+    """
+    year_pat=re.compile(r"(\d{4})")
+    f_segs: List[FileNameSegmentation] = [FileNameSegmentation(p) for p in refs]  # File name segmentation
+    for seg in f_segs:
+        if len(seg.authors_first_segment)<3:
+            logger.debug(f"{seg.authors}|作者名字太短,检测适用效果差，跳过")
+            continue
+
+        start_index=0
+        while True:
+
+            author_index = response.find(seg.authors_first_segment, start_index)
+
+            if author_index == -1:
+                break
+            year_match=year_pat.search(response,author_index)
+            if year_match is None:
+                break
+            year_start,year_end=year_match.span(1)
+            distance = year_start - author_index
+            if distance > max_fix_range:
+                logger.debug(f"{seg.authors}|距离太远: {distance}")
+                break
+
+            response=response[:year_start]+seg.year+response[year_end:]
+            start_index=year_end
+
+    return response
+
 
 
 class FileNameSegmentation:

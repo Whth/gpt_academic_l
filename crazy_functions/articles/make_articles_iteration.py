@@ -6,7 +6,7 @@ from typing import List, TypeAlias
 from loguru import logger
 
 from crazy_functions.articles.article_utils import ChapterOutline, dump_ref_usage_manifest, dump_final_result, \
-    dump_materials, remove_markdown_syntax
+    dump_materials, remove_markdown_syntax, fix_incorrect_year
 from crazy_functions.crazy_utils import request_gpt_model_in_new_thread_with_ui_alive
 from crazy_functions.plugin_template.plugin_class_template import (
     GptAcademicPluginTemplate,
@@ -168,8 +168,12 @@ def write_article_iter(chap_outlines:List[ChapterOutline], chatbot, llm_kwargs,g
                 llm_kwargs=llm_kwargs,
             )
 
-            last_written=yield from ensure_all_cited(chap,unchecked_last_written,
-                                          list(chain(*grouped_paths[:i+1])),
+
+            inserted_refs=list(chain(*grouped_paths[:i+1]))
+            last_written=yield from ensure_all_cited(chap,
+                                                     fix_incorrect_year(inserted_refs,
+                                                                        remove_markdown_syntax(unchecked_last_written)),
+                                          inserted_refs,
                                           chatbot,llm_kwargs,)
 
 
