@@ -24,6 +24,7 @@ jobs:
           wget https://github.com/astral-sh/uv/releases/download/0.5.13/uv-x86_64-pc-windows-msvc.zip
           unzip uv-x86_64-pc-windows-msvc.zip
           rm uvx.exe
+          rm uv-x86_64-pc-windows-msvc.zip
           echo "./uv.exe run ./main.py" >> start.bat
           rm -rf .git
           rm -rf .github
