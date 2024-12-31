@@ -25,7 +25,7 @@ jobs:
           unzip uv-x86_64-pc-windows-msvc.zip
           rm uvx.exe
           rm uv-x86_64-pc-windows-msvc.zip
-          echo "./uv.exe run ./main.py" >> start.bat
+          echo "uv.exe run ./main.py" >> start.bat
           rm -rf .git
           rm -rf .github
           rm -rf ci
