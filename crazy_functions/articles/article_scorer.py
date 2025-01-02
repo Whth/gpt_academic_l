@@ -41,20 +41,13 @@ class Score(BaseModel):
         """
         计算总评分
         """
-        return (
-            self.references_used_count_score
-            + self.fluency_score
-            + self.coherence_score
-            + self.relevance_score
-            + self.novelty_score
-            + self.no_duplicated_content_score
-        )
+        return sum(self.model_dump(exclude={"chap_name"}).values())
 
     def lowest_score_and_key(self):
         """
         计算最低分
         """
-        return min(self.model_dump().items(), key=lambda x: x[1])
+        return min(self.model_dump(exclude={"chap_name"}).items(), key=lambda x: x[1])
 
 
 class ArticleScore(GptAcademicPluginTemplate):
