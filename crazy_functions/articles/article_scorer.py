@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import List
 
-from loguru import logger
 from pydantic import BaseModel, Field, ConfigDict
 
 from crazy_functions.crazy_utils import request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency
@@ -10,6 +9,7 @@ from crazy_functions.plugin_template.plugin_class_template import (
     GptAcademicPluginTemplate,
     ArgProperty,
 )
+from shared_utils.advanced_markdown_format import markdown_convertion
 from toolbox import report_exception
 from toolbox import update_ui
 
@@ -113,6 +113,7 @@ class ArticleScore(GptAcademicPluginTemplate):
             retry_times_at_unknown_error=5,
         )
 
+        a = []
         for r in resp[1::2]:
 
             r = r.replace("```json", "").replace("```", "")
@@ -127,9 +128,17 @@ class ArticleScore(GptAcademicPluginTemplate):
                     b=f"解析评分失败: {e}",
                 )
                 continue
+            a.append(score)
 
-            logger.info(f"{score.chap_name}-评分结果: {score.total_score():2f}/60|{score.lowest_score_and_key()}")
-            chatbot.append(
-                [f"{score.chap_name}-评分结果", f"{score.total_score():2f}/60|{score.lowest_score_and_key()}"]
-            )
-            yield from update_ui(chatbot=chatbot, history=history)
+        na = sorted(a, key=lambda x: x.total_score(), reverse=True)
+        chatbot.append(
+            [
+                f"总评分结果",
+                markdown_convertion(
+                    f"# Rank:\n\n"
+                    f'{"\n".join([f"{i+1}. {x.chap_name} {x.total_score():.2f}/60 || lo: {x.lowest_score_and_key()}" for i,x in enumerate(na)])}'
+                ),
+            ]
+        )
+
+        yield from update_ui(chatbot=chatbot, history=history)
