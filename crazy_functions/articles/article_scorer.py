@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import List
 
+from loguru import logger
 from pydantic import BaseModel, Field, ConfigDict
 
 from crazy_functions.crazy_utils import request_gpt_model_multi_threads_with_very_awesome_ui_and_high_efficiency
@@ -20,16 +21,18 @@ class Score(BaseModel):
     relevance_score: float = Field(description="文章相关性评分", ge=0, le=10)
     novelty_score: float = Field(description="文章新颖性评分", ge=0, le=10)
     no_duplicated_content_score: float = Field(description="文章重复内容评分", ge=0, le=10)
+    chap_name: str = Field(description="章节名称", default="")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "references_used_count_score": 8.5,
-                "fluency_score": 9.0,
-                "coherence_score": 8.5,
-                "relevance_score": 9.0,
-                "novelty_score": 8.0,
-                "no_duplicated_content_score": 9.0,
+                "references_used_count_score": 5.3,
+                "fluency_score": 4.3,
+                "coherence_score": 8.1,
+                "relevance_score": 6.5,
+                "novelty_score": 1.3,
+                "no_duplicated_content_score": 1.9,
+                "chap_name": "1. Introduction",
             }
         }
     )
@@ -38,7 +41,20 @@ class Score(BaseModel):
         """
         计算总评分
         """
-        return sum(self.model_dump().values())
+        return (
+            self.references_used_count_score
+            + self.fluency_score
+            + self.coherence_score
+            + self.relevance_score
+            + self.novelty_score
+            + self.no_duplicated_content_score
+        )
+
+    def lowest_score_and_key(self):
+        """
+        计算最低分
+        """
+        return min(self.model_dump().items(), key=lambda x: x[1])
 
 
 class ArticleScore(GptAcademicPluginTemplate):
@@ -93,21 +109,23 @@ class ArticleScore(GptAcademicPluginTemplate):
             scroller_max_len=500,
             inputs_array=[
                 f"{p.read_text()}\n"
-                f"阅读上面的文章段落，给出评分，评分根式如下：\n"
-                f"{Score.model_json_schema()}\n不要带其他任何说明"
+                f"阅读上面的文章段落，给出1-10的评分，评分格式的一个例子如下,仿照它给出评分：\n\n\n"
+                f"{json.dumps(Score.model_json_schema()['example'],ensure_ascii=False)}\n\n\n 结果是一个纯合法的json,不要带其他任何说明,我会对你的结果直接使用json.loads"
                 for p in article_segs
             ],
             inputs_show_user_array=[f"Processing {p.name}" for p in article_segs],
             history_array=place_holder,
             sys_prompt_array=place_holder,
-            max_workers=int(plugin_kwargs["threads"]),
+            max_workers=len(article_segs),
             retry_times_at_unknown_error=5,
         )
 
         for r in resp[1::2]:
+
+            r = r.replace("```json", "").replace("```", "")
             try:
-                score = Score.model_validate(json.loads(r))
-                history.extend(["评分结果", score.total_score()])
+                score = Score(**json.loads(r))
+
             except Exception as e:
                 report_exception(
                     chatbot,
@@ -115,4 +133,10 @@ class ArticleScore(GptAcademicPluginTemplate):
                     a=f"解析评分: {r}",
                     b=f"解析评分失败: {e}",
                 )
+                continue
+
+            logger.info(f"{score.chap_name}-评分结果: {score.total_score():2f}/60|{score.lowest_score_and_key()}")
+            chatbot.append(
+                [f"{score.chap_name}-评分结果", f"{score.total_score():2f}/60|{score.lowest_score_and_key()}"]
+            )
             yield from update_ui(chatbot=chatbot, history=history)
