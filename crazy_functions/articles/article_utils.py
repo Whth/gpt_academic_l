@@ -3,6 +3,7 @@ import re
 import tempfile
 import zipfile
 from pathlib import Path
+from random import shuffle
 from typing import TypeAlias, List, Self, Dict, Optional, Tuple
 
 import fitz
@@ -135,11 +136,10 @@ class ChapterOutline:
         instruction_template = (
             f"{asm_ref_material}\n\n"
             "任务说明：\n"
-            f"已完成部分：\n{written_article_place_holder}\n\n"
-            f"论文的部分提纲：\n{self.content}\n\n"
-            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将{len(grouped)}篇参考文献综述作为引文插入到章节中。\n"
+            f"我的论文的已完成部分：\n{written_article_place_holder}\n\n"
+            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将上方所有的{len(grouped)}篇参考文献综述作为引文全部插入到章节中。\n"
             "要求：\n"
-            "- 不得遗漏任何文献，保持原有引用完整性。\n"
+            "- 不得遗漏任何已经存在的引用文献，保持原有引用完整性。\n"
             "- 章节编号严格依照提纲，不得私自增减章节或者子章节。如果发现我给出的已完成部分里面有不在我给出的提纲存在的章节你需要把它们给删除掉\n"
             "- 行文流畅，逻辑严谨，丰富并完善章节内容。\n"
             "- 引用格式：根据作者数量正确使用引文格式，引用文献时，使用实际作者姓氏及年份，遵循学术引用规范。"
@@ -147,10 +147,51 @@ class ChapterOutline:
             "对于两位作者：“作者1与作者2（2013）”，"
             "单个作者：“作者1（2013）”。"
             "多篇文献引用时，如“作者1（2019），作者2（2024）”。\n"
-            "- 可引用图表辅助说明，但仅限于字符描述其位置，不实际插入，多媒体文件插入由我完成。\n"
+            "- 可引用参考文献中的图标辅助说明，具体来说你在文中把原图或表的题注写到文内，最后我会根据你写的题注的位置来插入你所引用的图表。一定要多引用图，图包含的信息更多，可以让论文变得更加优质可读。\n"
+            "- 输出为纯文本，不使用Markdown语法或其他标记语言，标题序号遵循x x.y x.y.z格式。\n"
+            "- 无需开头问候或结尾总结。\n\n"
+            f"这是本次任务你需要完成撰写的提纲：\n{self.content}\n\n"
+            "请按照上述要求完成论文章节的撰写。"
+        )
+
+        return instruction_template
+
+    def _write_iter_missing_ref_asm_inner(self, grouped: List[Path], written_article_place_holder: str) -> str:
+        """
+        生成用于增量撰写文章内容的 ASM 任务指令。
+        """
+
+        segs = [FileNameSegmentation(p) for p in grouped]
+        labels = [f"{seg.authors}等人（{seg.year}）" for seg in segs]
+
+        # 加载引用文献
+        grouped = self.load_references(grouped)
+
+        # 构建参考文献字符串
+        asm_ref_material = "\n\n".join([f"[{i}]: {ref_material}" for i, ref_material in enumerate(grouped)])
+
+        # 指令模板
+        instruction_template = (
+            f"{asm_ref_material}\n\n"
+            "任务说明：\n"
+            f"我的论文的已完成部分：\n{written_article_place_holder}\n\n"
+            f"正在编写题目为“{self.TITLE}”的论文，根据提供的提纲和已完成的部分，将上方所有的{len(grouped)}篇参考文献综述作为引文全部插入到章节中。\n"
+            "要求：\n"
+            "- 不得遗漏任何已经存在的引用文献，保持原有引用完整性。\n"
+            "- 章节编号严格依照提纲，不得私自增减章节或者子章节。如果发现我给出的已完成部分里面有不在我给出的提纲存在的章节你需要把它们给删除掉\n"
+            "- 行文流畅，逻辑严谨，丰富并完善章节内容。\n"
+            "- 引用格式：根据作者数量正确使用引文格式，引用文献时，使用实际作者姓氏及年份，遵循学术引用规范。"
+            "例如，“作者1，作者2，作者3等人（2013）”，"
+            "对于两位作者：“作者1与作者2（2013）”，"
+            "单个作者：“作者1（2013）”。"
+            "多篇文献引用时，如“作者1（2019），作者2（2024）”。\n"
+            "- 可引用参考文献中的图标辅助说明，具体来说你在文中把原图或表的题注写到文内，最后我会根据你写的题注的位置来插入你所引用的图表。一定要多引用图，图包含的信息更多，可以让论文变得更加优质可读。\n"
             "- 输出为纯文本，不使用Markdown语法或其他标记语言，标题序号遵循x x.y x.y.z格式。\n"
             "- 无需开头问候或结尾总结。\n\n"
             "请按照上述要求完成论文章节的撰写。"
+            f"这是本次任务你需要完成撰写的提纲：\n{self.content}\n\n"
+            "注意在我给出的论文已完成部分中就是缺少了下面这些人的论文的引用，你需要在我给出的论文中根据他们论文的工作内容找到合适的位置插入它们作为引用。\n"
+            f"- {'\n- '.join(labels)}"
         )
 
         return instruction_template
@@ -231,8 +272,9 @@ class ChapterOutline:
         unused = self.get_incited(ref_materials, written)
         if not unused:
             return None
+        shuffle(unused)
         written_article_place_holder: str = "__written__"
-        return self._write_iter_asm_inner(unused, written_article_place_holder).replace(
+        return self._write_iter_missing_ref_asm_inner(unused, written_article_place_holder).replace(
             written_article_place_holder, written
         )
 
