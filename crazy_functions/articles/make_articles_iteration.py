@@ -11,7 +11,6 @@ from crazy_functions.articles.article_utils import (
     dump_final_result,
     dump_materials,
     remove_markdown_syntax,
-    fix_incorrect_year,
 )
 from crazy_functions.crazy_utils import request_gpt_model_in_new_thread_with_ui_alive
 from crazy_functions.plugin_template.plugin_class_template import (
@@ -174,7 +173,7 @@ def write_article_iter(chap_outlines: List[ChapterOutline], chatbot, llm_kwargs,
             inserted_refs = list(chain(*grouped_paths[: i + 1]))[:group_size]
             last_written = yield from ensure_all_cited(
                 chap,
-                fix_incorrect_year(inserted_refs, remove_markdown_syntax(unchecked_last_written)),
+                remove_markdown_syntax(unchecked_last_written),
                 inserted_refs,
                 chatbot,
                 llm_kwargs,

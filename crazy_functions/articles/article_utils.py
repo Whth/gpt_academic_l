@@ -147,7 +147,7 @@ class ChapterOutline:
             "对于两位作者：“作者1与作者2（2013）”，"
             "单个作者：“作者1（2013）”。"
             "多篇文献引用时，如“作者1（2019），作者2（2024）”。\n"
-            "- 可引用参考文献中的图标辅助说明，具体来说你在文中把原图或表的题注写到文内，最后我会根据你写的题注的位置来插入你所引用的图表。一定要多引用图，图包含的信息更多，可以让论文变得更加优质可读。\n"
+            "- 可引用参考文献中的图标辅助说明，具体来说你在文中把原图或表的题注写到文内，写的时候不要翻译源题注的文本，最后我会根据你写的题注的位置来插入你所引用的图表。一定要多引用图，图包含的信息更多，可以让论文变得更加优质可读。\n"
             "- 输出为纯文本，不使用Markdown语法或其他标记语言，标题序号遵循x x.y x.y.z格式。\n"
             "- 无需开头问候或结尾总结。\n\n"
             f"这是本次任务你需要完成撰写的提纲：\n{self.content}\n\n"
@@ -185,7 +185,7 @@ class ChapterOutline:
             "对于两位作者：“作者1与作者2（2013）”，"
             "单个作者：“作者1（2013）”。"
             "多篇文献引用时，如“作者1（2019），作者2（2024）”。\n"
-            "- 可引用参考文献中的图标辅助说明，具体来说你在文中把原图或表的题注写到文内，最后我会根据你写的题注的位置来插入你所引用的图表。一定要多引用图，图包含的信息更多，可以让论文变得更加优质可读。\n"
+            "- 可引用参考文献中的图标辅助说明，具体来说你在文中把原图或表的题注写到文内，写的时候不要翻译源题注的文本，最后我会根据你写的题注的位置来插入你所引用的图表。一定要多引用图，图包含的信息更多，可以让论文变得更加优质可读。\n"
             "- 输出为纯文本，不使用Markdown语法或其他标记语言，标题序号遵循x x.y x.y.z格式。\n"
             "- 无需开头问候或结尾总结。\n\n"
             "请按照上述要求完成论文章节的撰写。"
@@ -269,7 +269,7 @@ class ChapterOutline:
         """
         构造未使用的文献综述的 ASM 任务
         """
-        unused = self.get_incited(ref_materials, written)
+        unused = self.get_incited_brute(ref_materials, written)
         if not unused:
             return None
         shuffle(unused)
@@ -297,7 +297,7 @@ class ChapterOutline:
         )
 
     @staticmethod
-    def get_incited(refs: List[Path], response: str, max_distance: int = 60) -> List[Path]:
+    def get_incited(refs: List[Path], response: str, max_distance: int = 100) -> List[Path]:
         """
         Identifies references that are incorrectly cited in a given response text.
 
@@ -361,6 +361,31 @@ class ChapterOutline:
         logger.info(f"未找到的引用数量: {len(cited_incorrectly)}")
         # Return the list of file paths for references that are incorrectly cited
         return [f.source for f in cited_incorrectly]
+
+    @staticmethod
+    def get_incited_brute(refs: List[Path], response: str) -> List[Path]:
+        """
+        Identifies references that are incorrectly cited in a given response text using a brute force approach.
+
+        This function searches for references that are potentially incorrectly cited by comparing the authors' names
+        and the year in the response text with the authors' names and year in each reference. If the year appears
+        in the response text but does not match the year in the reference, the reference is considered incorrectly cited.
+
+        Parameters:
+        refs (List[Path]): A list of file paths for the references.
+        response (str): The response text in which to search for citations.
+
+        Returns:
+        List[Path]: A list of file paths for references that are incorrectly cited.
+        """
+
+        # Initialize a list to store the file name segmentation results
+        f_segs: List[FileNameSegmentation] = [FileNameSegmentation(p) for p in refs]
+        return [
+            f_seg.source
+            for f_seg in f_segs
+            if (f_seg.year not in response and f_seg.authors_first_segment not in response)
+        ]
 
 
 class ContentPacker:
@@ -612,7 +637,7 @@ class FileNameSegmentation:
         """
         :return: 作者的姓
         """
-        return self._authors.split(" ")[0]
+        return self._authors.split(", ")[0].split(" ")[0].strip()
 
     @property
     def year(self):
