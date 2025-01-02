@@ -58,7 +58,6 @@ def get_crazy_functions():
     from crazy_functions.articles.make_article_enhance import MakeArticleEnhance
     from crazy_functions.articles.make_article_write_only import ArticleMakerLite
 
-
     function_plugins = {
         "多媒体智能体": {
             "Group": "智能体",
@@ -473,8 +472,20 @@ def get_crazy_functions():
             }
         }
     )
+    from crazy_functions.articles.make_pdf_briefing_par import BriefingMakerParallel
 
-
+    function_plugins.update(
+        {
+            "根据PDF并行生成综述| Whth": {
+                "Group": "学术",
+                "Color": "stop",
+                "AsButton": False,
+                "Info": "根据PDF并行生成综述 | 输入参数为路径",
+                "Function": None,
+                "Class": BriefingMakerParallel,
+            }
+        }
+    )
     # -=--=- 尚未充分测试的实验性插件 & 需要额外依赖的插件 -=--=-
     try:
         from crazy_functions.下载arxiv论文翻译摘要 import 下载arxiv论文并翻译摘要
@@ -493,37 +504,6 @@ def get_crazy_functions():
     except:
         logger.error(trimmed_format_exc())
         logger.error("Load function plugin failed")
-
-    # try:
-    #     from crazy_functions.联网的ChatGPT import 连接网络回答问题
-
-    #     function_plugins.update(
-    #         {
-    #             "连接网络回答问题（输入问题后点击该插件，需要访问谷歌）": {
-    #                 "Group": "对话",
-    #                 "Color": "stop",
-    #                 "AsButton": False,  # 加入下拉菜单中
-    #                 # "Info": "连接网络回答问题（需要访问谷歌）| 输入参数是一个问题",
-    #                 "Function": HotReload(连接网络回答问题),
-    #             }
-    #         }
-    #     )
-    #     from crazy_functions.联网的ChatGPT_bing版 import 连接bing搜索回答问题
-
-    #     function_plugins.update(
-    #         {
-    #             "连接网络回答问题（中文Bing版，输入问题后点击该插件）": {
-    #                 "Group": "对话",
-    #                 "Color": "stop",
-    #                 "AsButton": False,  # 加入下拉菜单中
-    #                 "Info": "连接网络回答问题（需要访问中文Bing）| 输入参数是一个问题",
-    #                 "Function": HotReload(连接bing搜索回答问题),
-    #             }
-    #         }
-    #     )
-    # except:
-    #     logger.error(trimmed_format_exc())
-    #     logger.error("Load function plugin failed")
 
     try:
         from crazy_functions.SourceCode_Analyse import 解析任意code项目

@@ -10,6 +10,7 @@ from crazy_functions.articles.article_utils import (
     read_pdf_as_text,
     remove_references,
     split_head_and_body,
+    PdfSummarizer,
 )
 from crazy_functions.crazy_utils import input_clipping
 from crazy_functions.crazy_utils import request_gpt_model_in_new_thread_with_ui_alive
@@ -93,11 +94,8 @@ def make_brifing_inner(
 
         field_string = f'我正在撰写一篇关于"{title}"的文献综述论文。' if title else ""
         i_say = f"""
-根据上面这篇由{f_segs.authors}在{f_segs.year}年发表的标题为“{f_segs.title}”的论文，为我完成内容提取，具体的格式要求如下：
-{field_string}这个是对于一篇论文所对应综述内容的格式要求：
-
+根据上面这篇由{f_segs.authors}在{f_segs.year}年发表的标题为“{f_segs.title}”的论文，为我完成内容提取，如下是对于一篇论文所对应综述内容的格式要求：
 {format_constrain}
-
         """
         if additional_constrain:
             i_say += "额外的：\n"
@@ -208,58 +206,6 @@ class BriefingMaker(GptAcademicPluginTemplate):
 
     def define_arg_selection_menu(self):
 
-        std_format = """
-- 文章标题: 不要翻译，保留原文
-- 作者：作者名不要做任何的翻译，多个作者时要保留前三个然后后面加上"等人"
-- 研究发表的年份：文献发表的年份是什么？
-- 研究的背景：研究的动机和目的是什么？
-- 文章的性质：【技术报告和技术说明 | 专利文献 | 会议论文 | 学位论文 | 行业标准与规范 | 案例研究/项目报告 | 政策文件和研究报告 | 书籍章节 | 评论文章 | 跨学科研究 | 其他】 的其中一种
-- 核心工作：研究的主要贡献或创新点有那些？使用了什么方法或者技术？提取出最优秀的4到6点，一定要具体地说出技术或者方法的学名！
-- 解决了什么问题：这项研究通过其各个核心工作都各自在什么条件下解决了什么问题？有什么应用价值？
-- 与核心工作相对应的图表的题注：这项研究中的核心工作是否有对应的图表或者表格？如果有，提取它们所有的题注，不要翻译，直接用原名。没有的话就留空。
-- 得出的主要结论：最后的结果和效果怎么样？是否达到了预期的目标？可以如何改进？一定要指出具体的指标！
-- 文章的关键词：文章中研究内容所围绕的关键词是什么？给出最重要的5到8个关键词,不要翻译。
-- 研究最终会影响到的对象：这项研究对学术界或者工业界的那些对象有什么影响，是否有什么进一步的应用或者研究方向？
-- 研究达到的效果或影响：最终所达到的效果或者影响具体是什么？
-- 研究的局限性：这项研究的局限性是什么？是否有什么可以改进的地方？
-- 最终概述：将上面提取出来的内容全部按照规范的格式组织起来（
-规范(注意:【】和其中的文字共同组成并指代了一个提取到的内容)：
-【作者1的姓】, 【作者2的姓】, 【作者3的姓】等人，在【发表年份】里【研究背景】下的【文章的性质】中讨论了【核心工作1】在处理【解决的问题1】，此外其还讨论了【核心工作2】在处理【解决的问题2】，最终得到了【主要结论】的结论)，对【影响对象】有着【影响或者效果】.
-）
-请确保你的回答简洁明了，并按照以下格式组织信息，下面是一个模板用作参考（注意：最后你给出的提取内容不应该带【】）：
-
-文章标题：【文章标题】
-作者：【作者1】；【作者2】；【作者3】
-发表年份：【发表年份】
-研究背景：【研究背景】
-文章性质：【文章性质】
-核心工作：【核心工作1】；【核心工作2】；...
-解决什么问题：【解决问题1】；【解决问题2】；...
-与核心工作相对应的图表的题注：【图标题注1】；【图标题注2】；...
-得出的主要结论：【得出的主要结论】
-文章关键词：【关键词1】；【关键词2】；...
-研究最终会影响到的对象：【影响对象】
-研究达到的效果或影响：【效果或影响】
-研究的局限性：【局限性】
-最终概述：【最终概述】
-
-下面是一个实际例子：
-文章标题：Enhancing Wind Turbine Blade Efficiency through Advanced Aerodynamic Design and Material Optimization
-作者：Smith；Johnson；Williams等人
-发表年份：2023
-研究背景：随着全球对可再生能源的需求增长，提高风力发电效率成为重要课题。本研究旨在通过先进的空气动力学设计和材料优化来增强小微风电叶片的性能。
-文章性质：会议论文
-核心工作：采用计算流体力学(CFD)进行叶片气动外形优化；利用有限元分析(FEA)评估结构完整性；实施多学科设计优化(MDO)以提升综合性能；开发新型复合材料提高耐久性。
-解决什么问题：CFD优化解决了传统设计方法无法充分考虑复杂流动条件的问题；FEA确保了在极端负载条件下叶片的可靠性和安全性；MDO整合了多个工程学科的知识，解决了单一学科设计的局限性；新型材料的应用提高了叶片的耐用性和抗疲劳性能。
-与核心工作相对应的图表的题注：Figure 1: CFD Simulation Results for Blade Aerodynamic Performance；Figure 2: FEA Stress Analysis of Optimized Blade Structure；Table 1: Comparison of Conventional and Advanced Composite Materials；Figure 3: MDO Workflow Diagram
-得出的主要结论：研究结果表明，通过上述技术手段，可以将小微风电叶片的能量转换效率提高15%，同时降低了约20%的制造成本。这些改进使得小微风电系统更加经济可行，符合预期目标。
-文章关键词：Wind turbine blade；Aerodynamic design；Material optimization；Computational fluid dynamics；Finite element analysis
-研究最终会影响到的对象：学术界的小型风电研究者；工业界的风电设备制造商；政策制定者以及环保组织。
-研究达到的效果或影响：提高了小微风电系统的市场竞争力，并促进了相关政策支持和技术标准的发展。
-研究的局限性：研究主要基于模拟数据，实际测试可能因环境变量而有所差异；新材料的大规模生产可能会遇到技术和经济上的挑战。
-最终概述：Smith, Johnson, Williams等人，在2023年里随着全球对可再生能源需求的增长背景下，通过会议论文讨论了采用计算流体力学(CFD)进行叶片气动外形优化、利用有限元分析(FEA)评估结构完整性、实施多学科设计优化(MDO)以提升综合性能、开发新型复合材料提高耐久性的方法在处理提高小微风电叶片能量转换效率和降低成本方面的问题，最终得到了显著提高小微风电叶片性能并降低制造成本的结论，对学术界的小型风电研究者、工业界的风电设备制造商、政策制定者以及环保组织有着促进相关政策支持和技术标准发展的影响。
-"""
-
         gui_definition = {
             "main_input": ArgProperty(
                 title="doc pack path",
@@ -282,7 +228,7 @@ class BriefingMaker(GptAcademicPluginTemplate):
             "format_constraint": ArgProperty(
                 title="format constraint",
                 description="The format constraint",
-                default_value=std_format,
+                default_value=PdfSummarizer.SUM_FORMAT_CONSTRAIN,
                 type="string",
             ).model_dump_json(),
             "additional_constraint": ArgProperty(
