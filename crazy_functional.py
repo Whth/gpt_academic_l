@@ -486,6 +486,20 @@ def get_crazy_functions():
             }
         }
     )
+    from crazy_functions.articles.article_scorer import ArticleScore
+
+    function_plugins.update(
+        {
+            "文章评分| Whth": {
+                "Group": "学术",
+                "Color": "stop",
+                "AsButton": False,
+                "Info": "文章评分 | 输入参数为路径",
+                "Function": None,
+                "Class": ArticleScore,
+            }
+        }
+    )
     # -=--=- 尚未充分测试的实验性插件 & 需要额外依赖的插件 -=--=-
     try:
         from crazy_functions.下载arxiv论文翻译摘要 import 下载arxiv论文并翻译摘要
