@@ -621,6 +621,7 @@ def remove_references(article_text: str) -> str:
             segs.pop()
             return atp.join(segs)
 
+    logger.warning("未找到参考文献部分")
     # If no references section is found, return the original text
     return article_text
 
@@ -646,9 +647,8 @@ def split_head_and_body(text: str) -> Tuple[str, str]:
         segs = text.split(atp)
         if len(segs) > 1:
             return segs.pop(0), atp.join(segs)
-
-    print(text)
-    print("未找到引言部分")
+    logger.warning("未找到文章头部")
+    return "", text
 
 
 def read_pdf_as_text(file_path: str):
@@ -664,6 +664,7 @@ def read_pdf_as_text(file_path: str):
     out = ""
     for page in document.pages():
         out += page.get_text()  # Extract text from the page
+
     return out
 
 

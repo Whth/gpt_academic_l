@@ -86,6 +86,7 @@ class BriefingMakerParallel(GptAcademicPluginTemplate):
             history_array=place_holder,
             sys_prompt_array=place_holder,
             max_workers=int(plugin_kwargs["threads"]),
+            retry_times_at_unknown_error=5,
         )
 
         gpt_says: List[str] = resp[1::2]
